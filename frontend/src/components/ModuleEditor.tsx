@@ -359,8 +359,10 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
                         <p className="text-xs text-gray-500 capitalize">
                           {step.type === "freeResponse"
                             ? "Free Response"
+                            : step.type === "additionalResources"
+                            ? "Additional Resources"
                             : step.type}
-                        </p>
+                      </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button

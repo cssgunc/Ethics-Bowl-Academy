@@ -38,27 +38,35 @@ export default function AdditionalResourcesEditorModal({
 
   // Convert existing step resources to array format
   const initialResources: Resource[] = [];
-  if (step?.resources?.link) {
-    initialResources.push({
-      id: 'link-1',
-      name: 'External Link',
-      url: step.resources.link,
-      type: 'link',
-    });
-  }
-  if (step?.resources?.pdf) {
-    initialResources.push({
-      id: 'pdf-1',
-      name: 'PDF Document',
-      url: step.resources.pdf,
-      type: 'pdf',
-    });
+  if (step?.resources) {
+    // Check if 'all' array exists (new format)
+    if (step.resources.all && Array.isArray(step.resources.all)) {
+      initialResources.push(...step.resources.all);
+    } 
+    // Fallback to old format if 'all' doesn't exist
+    else {
+      if (step.resources.link) {
+        initialResources.push({
+          id: 'link-1',
+          name: 'External Link',
+          url: step.resources.link,
+          type: 'link',
+        });
+      }
+      if (step.resources.pdf) {
+        initialResources.push({
+          id: 'pdf-1',
+          name: 'PDF Document',
+          url: step.resources.pdf,
+          type: 'pdf',
+        });
+      }
+    }
   }
 
   const [resources, setResources] = useState<Resource[]>(initialResources);
   const [isSaving, setIsSaving] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
 
   // New resource form
   const [newResource, setNewResource] = useState({
@@ -130,10 +138,9 @@ export default function AdditionalResourcesEditorModal({
           });
         }
       } catch (metadataError) {
-        console.error('⚠️ Could not save metadata:', metadataError);
+        console.error('Could not save metadata:', metadataError);
       }
       
-      // Set the URL in the form
       setNewResource({
         ...newResource,
         url: downloadURL,
@@ -178,79 +185,67 @@ export default function AdditionalResourcesEditorModal({
     setNewResource({ name: '', url: '', type: 'link' });
   };
 
-  const handleRemoveResource = async (id: string) => {
-    const resource = resources.find(r => r.id === id);
-    
-    if (resource && resource.type === 'pdf' && resource.url.includes('firebase')) {
-      // Try to delete from storage
-      try {
-        const storageRef = getStorageRefFromUrl(resource.url);
-        if (storageRef) {
-          await deleteObject(storageRef);
-        }
-      } catch (error) {
-        console.warn('Could not delete file from storage:', error);
-      }
-    }
-
+  // UPDATED: Just remove from list, delete happens on save
+  const handleRemoveResource = (id: string) => {
     setResources(resources.filter(r => r.id !== id));
   };
 
-  const handleSave = async () => {
-    if (!formData.title.trim()) {
-      alert('Please enter a resource title');
-      return;
-    }
+  // UPDATED: Delete removed PDFs when saving
+const handleSave = async () => {
+  if (!formData.title.trim()) {
+    alert('Please enter a resource title');
+    return;
+  }
 
-    if (resources.length === 0) {
-      alert('Please add at least one resource');
-      return;
-    }
+  if (resources.length === 0) {
+    alert('Please add at least one resource');
+    return;
+  }
 
-    if (!userId) {
-      alert('User not authenticated');
-      return;
-    }
+  if (!userId) {
+    alert('User not authenticated');
+    return;
+  }
 
-    setIsSaving(true);
-    try {
-      // Convert resources array to the format expected by backend
-      const resourcesData = {
-        link: resources.find(r => r.type === 'link')?.url || '',
-        pdf: resources.find(r => r.type === 'pdf')?.url || '',
-        // Store all resources for future use
-        all: resources,
+  setIsSaving(true);
+  try {
+    
+    // Convert resources array to the format expected by backend
+    const resourcesData = {
+      link: resources.find(r => r.type === 'link')?.url || '',
+      pdf: resources.find(r => r.type === 'pdf')?.url || '',
+      all: resources,
+    };
+
+    if (step) {
+      // Update existing step
+      const updates: Partial<AdditionalResourcesStep> = {
+        title: formData.title.trim(),
+        resources: resourcesData as any,
+        isOptional: formData.isOptional,
       };
-
-      if (step) {
-        // Update existing step
-        const updates: Partial<AdditionalResourcesStep> = {
-          title: formData.title.trim(),
-          resources: resourcesData as any,
-          isOptional: formData.isOptional,
-        };
-        await updateStepData(moduleId, step.id, updates);
-      } else {
-        // Create new step
-        const order = module?.steps?.length || 0;
-        const stepData = {
-          type: 'additionalResources' as const,
-          title: formData.title.trim(),
-          resources: resourcesData as any,
-          isOptional: formData.isOptional,
-          order,
-          createdBy: userId,
-        };
-        await createNewStep(moduleId, stepData);
-      }
-      onClose();
-    } catch (error: any) {
-      console.error('Error saving additional resources step:', error);
-      alert(`Failed to save resource: ${error.message}`);
-    } finally {
-      setIsSaving(false);
+      await updateStepData(moduleId, step.id, updates);
+    } else {
+      // Create new step
+      const order = module?.steps?.length || 0;
+      const stepData = {
+        type: 'additionalResources' as const,
+        title: formData.title.trim(),
+        resources: resourcesData as any,
+        isOptional: formData.isOptional,
+        order,
+        createdBy: userId,
+      };
+      await createNewStep(moduleId, stepData);
     }
-  };
+    onClose();
+  } catch (error: any) {
+    console.error('Error saving additional resources step:', error);
+    alert(`Failed to save resource: ${error.message}`);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   return (
     <>

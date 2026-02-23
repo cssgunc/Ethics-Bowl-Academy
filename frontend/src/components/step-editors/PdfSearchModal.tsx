@@ -21,22 +21,21 @@ export default function PdfSearchModal({ onSelect, onClose }: {
   const [results, setResults] = useState<UploadedFile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // ⭐ ADD THIS - Load all files when modal opens
+  // Load all files when modal opens
   useEffect(() => {
     loadAllFiles();
   }, []);
 
-  // ⭐ ADD THIS FUNCTION
   const loadAllFiles = async () => {
     setIsSearching(true);
     try {
-      console.log('📂 Loading all files...'); // Debug
+      console.log('Loading all files...'); // Debug
       
       const filesRef = collection(db!, 'uploadedFiles');
       const q = query(filesRef, orderBy('uploadedAt', 'desc'));
       const snapshot = await getDocs(q);
       
-      console.log('📄 Found documents:', snapshot.docs.length); // Debug
+      console.log('Found documents:', snapshot.docs.length); // Debug
       
       const allFiles = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -47,11 +46,11 @@ export default function PdfSearchModal({ onSelect, onClose }: {
         };
       }) as UploadedFile[];
       
-      console.log('✅ Loaded files:', allFiles); // Debug
+      console.log('Loaded files:', allFiles); // Debug
       
       setResults(allFiles);
     } catch (error) {
-      console.error('❌ Error loading files:', error);
+      console.error('Error loading files:', error);
       console.error('Error code:', (error as any).code);
       console.error('Error message:', (error as any).message);
     } finally {
@@ -84,7 +83,7 @@ export default function PdfSearchModal({ onSelect, onClose }: {
       
       setResults(filtered);
     } catch (error) {
-      console.error('❌ Error searching files:', error);
+      console.error('Error searching files:', error);
       alert('Failed to search files');
     } finally {
       setIsSearching(false);
