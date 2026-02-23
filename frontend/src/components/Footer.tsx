@@ -42,7 +42,7 @@ export default function Footer() {
                 gap: 0.5,
               }}
             >
-              <Image src="/philosophy_logo_white.png" alt="UNC Philosophy Logo" width={150} height={200} />
+              <Image src="/philosophy_logo_white.png" alt="UNC Philosophy Logo" width={175} height={200} />
             </Box>
           </Box>
 
