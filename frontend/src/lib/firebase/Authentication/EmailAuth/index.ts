@@ -42,7 +42,7 @@ export const registerUser = async (
         displayName: name || "",
         photoURL: diceBear,
       });
-      await updateProfile(user, { displayName: name, photoURL: diceBear});  // update display name and pfp in firebase auth
+      await updateProfile(user, { displayName: name, photoURL: diceBear });  // update display name and pfp in firebase auth
     }
     //Send verifcation email to the user
     await sendEmailVerification(user);
@@ -106,28 +106,25 @@ export const updateUserPassword = async (
 
     //check if old password input is valid
     if (!currentPassword || currentPassword === "") {
-      alert("Please enter your current password");
-      return;
+      throw new Error("Please enter your current password");
     }
     //check if new password input is valid
     if (!newPassword || newPassword === "") {
-      alert("Please enter your new password");
-      return;
+      throw new Error("Please enter your new password");
     }
 
     //validate old password
-    const authCredential = EmailAuthProvider.credential(
+    const credential = EmailAuthProvider.credential(
       user.email as string,
       currentPassword
     );
 
     //Reauthenticate user
-    await reauthenticateWithCredential(user, authCredential);
+    await reauthenticateWithCredential(user, credential);
     //update password
     await updatePassword(user, newPassword);
-    alert("Password Updated Sucessfully");
 
-    //Navigation
+    // Success - caller should handle notification
   } catch (error) {
     if (error instanceof FirebaseError) {
       generateFirebaseAuthErrorMessage(error);

@@ -3,17 +3,20 @@
 import { useState } from 'react';
 import { PollStep, PollOption } from '@/lib/firebase/types';
 import { useModuleStore } from '@/store/moduleStore';
+import { useAlert } from '@/context/AlertContext';
+import { v4 as uuidv4 } from 'uuid';
 
 interface PollEditorModalProps {
   moduleId: string;
   onClose: () => void;
   onBack: () => void;
   step?: PollStep;
+  onSave: (step: PollStep) => void;
 }
 
-export default function PollEditorModal({ moduleId, onClose, onBack, step }: PollEditorModalProps) {
-  const { modules, createNewStep, updateStepData, userId } = useModuleStore();
-  const module = modules.find(m => m.id === moduleId);
+export default function PollEditorModal({ moduleId, onClose, onBack, step, onSave }: PollEditorModalProps) {
+  const { userId } = useModuleStore();
+  const { showAlert } = useAlert();
 
   const [formData, setFormData] = useState({
     title: step?.title || '',
@@ -34,58 +37,48 @@ export default function PollEditorModal({ moduleId, onClose, onBack, step }: Pol
 
   const handleSave = async () => {
     if (!formData.title.trim()) {
-      alert('Please enter a poll title');
+      await showAlert('Validation Error', 'Please enter a poll title', 'error');
       return;
     }
 
     if (!formData.question.trim()) {
-      alert('Please enter a question');
+      await showAlert('Validation Error', 'Please enter a question', 'error');
       return;
     }
 
     const validOptions = options.filter(opt => opt.text.trim());
     if (validOptions.length < 2) {
-      alert('Please provide at least 2 options');
+      await showAlert('Validation Error', 'Please provide at least 2 options', 'error');
       return;
     }
 
     if (!userId) {
-      alert('User not authenticated');
+      await showAlert('Authentication Error', 'User not authenticated', 'error');
       return;
     }
 
     setIsSaving(true);
     try {
-      const stepData: any = {
+      const stepData: PollStep = {
+        id: step?.id || uuidv4(),
+        type: 'poll',
         title: formData.title.trim(),
         question: formData.question.trim(),
         options: validOptions,
         allowMultipleChoice: formData.allowMultipleChoice,
         isOptional: formData.isOptional,
-        type: 'poll',
-        order: step?.order || (module?.stepCount || 0) + 1,
-        createdBy: userId,
+        order: step?.order ?? 0, // Assigned by parent
+        createdBy: step?.createdBy || userId,
         createdAt: step?.createdAt || new Date(),
         updatedAt: new Date(),
+        estimatedMinutes: formData.estimatedMinutes ? parseInt(formData.estimatedMinutes) : undefined,
       };
 
-      // Only add estimatedMinutes if it has a value
-      if (formData.estimatedMinutes) {
-        stepData.estimatedMinutes = parseInt(formData.estimatedMinutes);
-      }
-
-      if (step) {
-        // Update existing step
-        await updateStepData(moduleId, step.id, stepData);
-      } else {
-        // Create new step
-        await createNewStep(moduleId, stepData);
-      }
-
+      onSave(stepData);
       onClose();
     } catch (error) {
       console.error('Error saving poll step:', error);
-      alert('Error saving poll step. Please try again.');
+      await showAlert('Error', 'Error saving poll step. Please try again.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -107,7 +100,7 @@ export default function PollEditorModal({ moduleId, onClose, onBack, step }: Pol
   };
 
   const updateOption = (id: string, text: string) => {
-    setOptions(options.map(opt => 
+    setOptions(options.map(opt =>
       opt.id === id ? { ...opt, text } : opt
     ));
   };

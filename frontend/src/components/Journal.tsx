@@ -19,6 +19,7 @@ import {
   useTheme
 } from '@mui/material';
 import { useState, useEffect, useCallback } from 'react';
+import { useAlert } from '@/context/AlertContext';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LockIcon from '@mui/icons-material/Lock';
 import { Tooltip } from '@mui/material';
@@ -31,7 +32,7 @@ interface JournalUIState {
 export function Journal() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
 
   const {
     entries,
@@ -44,13 +45,14 @@ export function Journal() {
     error,
     isAuthenticated
   } = useJournal();
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState<'updated' | 'created'>('updated');
   const [isEditing, setIsEditing] = useState(false);
   const [status, setStatus] = useState<'saved' | 'edited'>('saved');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  
+  const { showConfirm } = useAlert();
+
   // Load UI preferences
   useEffect(() => {
     const savedUI = localStorage.getItem(`journal:ui`);
@@ -65,7 +67,7 @@ export function Journal() {
     }
   }, []);
 
-  
+
   // Save UI preferences
   useEffect(() => {
     const uiState: JournalUIState = {
@@ -74,22 +76,22 @@ export function Journal() {
     };
     localStorage.setItem(`journal:ui`, JSON.stringify(uiState));
   }, [sortMode, searchQuery]);
-  
+
   const getEntryBodyText = (entry: any): string => {
     const body = entry.body;
-  
+
     if (!body) return '';
-  
+
     // Normal journal entry: body is a plain string
     if (typeof body === 'string') {
       return body;
     }
-  
+
     // Module-linked entry: body is a map { [stepId]: [prompt, answer] }
     if (typeof body === 'object') {
       try {
         const sections = Object.values(body) as [string, string][];
-    
+
         return sections
           .map(([prompt, answer]) => {
             const promptLine = `${prompt.trim()}:`;
@@ -101,41 +103,41 @@ export function Journal() {
         return '';
       }
     }
-    
-  
+
+
     return '';
   };
-  
+
 
   // Filter and sort entries
   const filteredEntries = entries
-  .filter(entry => {
-    const q = searchQuery.toLowerCase();
-    const bodyText = getEntryBodyText(entry).toLowerCase();
+    .filter(entry => {
+      const q = searchQuery.toLowerCase();
+      const bodyText = getEntryBodyText(entry).toLowerCase();
 
-    return (
-      entry.title.toLowerCase().includes(q) ||
-      bodyText.includes(q)
-    );
-  })
-  .sort((a, b) => {
-    const rawDateA = sortMode === 'updated' ? a.updatedAt : a.createdAt;
-    const rawDateB = sortMode === 'updated' ? b.updatedAt : b.createdAt;
+      return (
+        entry.title.toLowerCase().includes(q) ||
+        bodyText.includes(q)
+      );
+    })
+    .sort((a, b) => {
+      const rawDateA = sortMode === 'updated' ? a.updatedAt : a.createdAt;
+      const rawDateB = sortMode === 'updated' ? b.updatedAt : b.createdAt;
 
-    const dateA = rawDateA instanceof Date
-      ? rawDateA
-      : (rawDateA && typeof rawDateA === 'object' && 'toDate' in rawDateA && typeof rawDateA.toDate === 'function')
-        ? rawDateA.toDate()
-        : new Date();
+      const dateA = rawDateA instanceof Date
+        ? rawDateA
+        : (rawDateA && typeof rawDateA === 'object' && 'toDate' in rawDateA && typeof rawDateA.toDate === 'function')
+          ? rawDateA.toDate()
+          : new Date();
 
-    const dateB = rawDateB instanceof Date
-      ? rawDateB
-      : (rawDateB && typeof rawDateB === 'object' && 'toDate' in rawDateB && typeof rawDateB.toDate === 'function')
-        ? rawDateB.toDate()
-        : new Date();
+      const dateB = rawDateB instanceof Date
+        ? rawDateB
+        : (rawDateB && typeof rawDateB === 'object' && 'toDate' in rawDateB && typeof rawDateB.toDate === 'function')
+          ? rawDateB.toDate()
+          : new Date();
 
-    return dateB.getTime() - dateA.getTime();
-  });
+      return dateB.getTime() - dateA.getTime();
+    });
 
 
   const activeEntry = entries.find(entry => entry.id === activeId);
@@ -156,10 +158,14 @@ export function Journal() {
       setStatus('saved');
     } else if (e.key === 'Delete' && activeId) {
       e.preventDefault();
-      if (confirm('Delete this note?')) {
-        deleteEntry(activeId);
-        if (isMobile) setIsEditing(false);
-      }
+      // We can't await here easily in the callback, but showConfirm returns a promise.
+      // For the shortcut, checking the promise result inside an async wrapper or just using it is needed.
+      showConfirm('Delete Note', 'Delete this note?').then((confirmed) => {
+        if (confirmed) {
+          deleteEntry(activeId);
+          if (isMobile) setIsEditing(false);
+        }
+      });
     }
   }, [activeId, activeEntry, createEntry, updateEntry, deleteEntry, isMobile]);
 
@@ -167,7 +173,7 @@ export function Journal() {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
-  
+
   // Auto-save status
   useEffect(() => {
     if (activeId) {
@@ -233,7 +239,7 @@ export function Journal() {
             >
               New Note
             </Button>
-            
+
             <Input
               placeholder="Search notes..."
               value={searchQuery}
@@ -241,12 +247,12 @@ export function Journal() {
               fullWidth
               aria-label="Search journal entries"
             />
-            
+
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Typography variant="body2" color="text.secondary">
                 {filteredEntries.length} notes
               </Typography>
-              <Button 
+              <Button
                 onClick={(e) => setAnchorEl(e.currentTarget)}
                 aria-label="Sort options"
               >
@@ -266,9 +272,9 @@ export function Journal() {
               </Menu>
             </Box>
           </Stack>
-          
+
           <Divider />
-          
+
           <Box sx={{ overflowY: 'auto', flex: 1 }} role="list">
             {filteredEntries.length === 0 ? (
               <Box p={2} textAlign="center">
@@ -278,7 +284,7 @@ export function Journal() {
               </Box>
             ) : (
               filteredEntries.map(entry => (
-                <Card 
+                <Card
                   key={entry.id}
                   onClick={() => {
                     setActiveId(entry.id);
@@ -325,7 +331,7 @@ export function Journal() {
           </Box>
         </Card>
       </Box>
-      
+
       {/* Right Side - Editor */}
       <Box sx={{
         flex: 1,
@@ -351,18 +357,19 @@ export function Journal() {
                   placeholder={isLocked ? 'Title (locked – linked to a module)' : 'Title'}
                   fullWidth
                   inputProps={{ readOnly: isLocked }}
-                  sx={{ 
-                    fontSize: '1.25rem', 
+                  sx={{
+                    fontSize: '1.25rem',
                     fontWeight: 'bold',
                     '& input': { py: 1 }
                   }}
                   aria-label={isLocked ? 'Locked note title' : 'Note title'}
                 />
-                <Button 
-                  variant="outlined" 
+                <Button
+                  variant="outlined"
                   color="error"
-                  onClick={() => {
-                    if (confirm('Delete this note?')) {
+                  onClick={async () => {
+                    const confirmed = await showConfirm('Delete Note', 'Delete this note?');
+                    if (confirmed) {
                       deleteEntry(activeId!);
                       if (isMobile) setIsEditing(false);
                     }
@@ -375,9 +382,9 @@ export function Journal() {
                   {status === 'saved' ? 'Saved' : 'Edited'}
                 </Typography>
               </Stack>
-              
+
               <Divider />
-              
+
               <TextField
                 value={getEntryBodyText(activeEntry)}
                 onChange={(e) => {

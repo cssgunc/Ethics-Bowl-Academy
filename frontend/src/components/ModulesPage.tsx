@@ -10,7 +10,107 @@
 import { useEffect, useState } from 'react';
 import { useModuleStore, ModuleWithSteps } from '@/store/moduleStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useAlert } from '@/context/AlertContext';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
 import ModuleEditor from './ModuleEditor';
+
+// Sortable Module Card Component
+function SortableModuleCard({ module, userId, onEdit, onDelete }: {
+  module: ModuleWithSteps;
+  userId: string | undefined;
+  onEdit: (m: ModuleWithSteps) => void;
+  onDelete: (id: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: module.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200 relative ${isDragging ? 'shadow-lg ring-2 ring-blue-500' : ''}`}
+    >
+      {/* Drag Handle & Order Badge */}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <span className="bg-gray-100 text-gray-600 text-xs font-mono px-2 py-1 rounded">
+          #{typeof module.order === 'number' ? module.order : '?'}
+        </span>
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-move p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
+        >
+          <GripVertical size={20} />
+        </div>
+      </div>
+
+      <div className="mb-4 pr-16">
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">{module.title}</h3>
+        <p className="text-gray-600 text-sm line-clamp-2">{module.description}</p>
+      </div>
+
+      <div className="mb-4">
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          <span>{module.stepCount} steps</span>
+        </div>
+        <div className="text-xs text-gray-400 mb-1">
+          {module.isPublic ? 'Public' : 'Private'}
+        </div>
+        <div className="text-xs text-gray-400">
+          Owner: {module.createdBy === userId ? 'You' : module.createdBy.slice(0, 8) + '...'}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => onEdit(module)}
+          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => onDelete(module.id)}
+          className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function ModulesPage() {
   // ===== FIREBASE AUTH =====
@@ -26,11 +126,45 @@ export default function ModulesPage() {
     setSelectedModule,
     setIsEditing,
     setUserId,
+    reorderModules,
   } = useModuleStore();
+  const { showConfirm } = useAlert();
 
   // ===== LOCAL STATE =====
   const [showModuleEditor, setShowModuleEditor] = useState(false);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+
+  // ===== DND SENSORS =====
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = modules.findIndex((m) => m.id === active.id);
+      const newIndex = modules.findIndex((m) => m.id === over?.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // Optimistic UI update can be done here if needed, 
+        // but reorderModules updates the store which triggers re-render
+        // Calculate new order logic is inside reorderModules action if we passed indices,
+        // but reorderModules takes an array of IDs.
+        // So we need to construct the new array of IDs.
+
+        const newModules = arrayMove(modules, oldIndex, newIndex);
+        const newOrderIds = newModules.map(m => m.id);
+
+        reorderModules(newOrderIds);
+      }
+    }
+  };
 
   // ===== EFFECTS =====
 
@@ -60,7 +194,8 @@ export default function ModulesPage() {
   };
 
   const handleDeleteModule = async (moduleId: string) => {
-    if (confirm('Are you sure you want to delete this module? This will also delete all its steps.')) {
+    const confirmed = await showConfirm('Delete Module', 'Are you sure you want to delete this module? This will also delete all its steps.');
+    if (confirmed) {
       await deleteModuleData(moduleId);
     }
   };
@@ -102,7 +237,7 @@ export default function ModulesPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Module Management</h1>
-          <p className="text-gray-600">Manage your learning modules from Firestore</p>
+          <p className="text-gray-600">Manage and organize learning modules</p>
           <p className="text-xs text-gray-400 mt-1">Logged in as: {user.email || user.uid}</p>
         </div>
 
@@ -150,49 +285,29 @@ export default function ModulesPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {modules.map((module) => (
-              <div
-                key={module.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200"
-              >
-                <div className="mb-4">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{module.title}</h3>
-                  <p className="text-gray-600 text-sm line-clamp-2">{module.description}</p>
-                </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
 
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    <span>{module.stepCount} steps</span>
-                  </div>
-                  <div className="text-xs text-gray-400 mb-1">
-                    {module.isPublic ? 'Public' : 'Private'}
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    Owner: {module.createdBy === user?.uid ? 'You' : module.createdBy.slice(0, 8) + '...'}
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEditModule(module)}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDeleteModule(module.id)}
-                    className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
-                  >
-                    Delete
-                  </button>
-                </div>
+          >
+            <SortableContext
+              items={modules.map(m => m.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {modules.map((module) => (
+                  <SortableModuleCard
+                    key={module.id}
+                    module={module}
+                    userId={user?.uid}
+                    onEdit={handleEditModule}
+                    onDelete={handleDeleteModule}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
 
         {/* Module Editor Modal */}

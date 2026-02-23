@@ -2,15 +2,16 @@
 
 const nextConfig = {
     images: {
-      domains: [
-        "lh3.googleusercontent.com",
-        "api.dicebear.com"
+      remotePatterns: [
+        {
+          protocol: "https",
+          hostname: "lh3.googleusercontent.com",
+        },
+        {
+          protocol: "https",
+          hostname: "api.dicebear.com",
+        },
       ],
-    },
-    // Skip static optimization for pages that use Firebase Auth
-    // This ensures they're always rendered dynamically
-    experimental: {
-      isrMemoryCacheSize: 0,
     },
 };
 

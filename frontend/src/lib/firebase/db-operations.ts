@@ -54,12 +54,9 @@ export const createModule = async (
 ): Promise<Module> => {
   // If no order is provided, find the next available order
   let order = moduleData.order;
-  if (!order) {
+  if (order === undefined || order === null) {
     const existingModules = await getPublicModules();
-    const existingOrders = existingModules
-      .map((m) => m.order || 0)
-      .filter((o) => o > 0);
-    order = existingOrders.length > 0 ? Math.max(...existingOrders) + 1 : 1;
+    order = existingModules.length + 1;
   }
 
   const newModule = {
@@ -85,40 +82,6 @@ export const updateModule = async (moduleId: string, moduleData: any) => {
     updatedAt: serverTimestamp(),
   });
   return { id: moduleId, ...moduleData };
-};
-
-// Utility function to assign unique orders to existing modules without order
-export const assignOrdersToExistingModules = async (): Promise<void> => {
-  try {
-    const modules = await getPublicModules();
-    const modulesWithoutOrder = modules.filter((m) => !m.order);
-
-    if (modulesWithoutOrder.length === 0) {
-      console.log("All modules already have order values");
-      return;
-    }
-
-    // Find the highest existing order
-    const existingOrders = modules
-      .map((m) => m.order || 0)
-      .filter((o) => o > 0);
-    let nextOrder =
-      existingOrders.length > 0 ? Math.max(...existingOrders) + 1 : 1;
-
-    // Assign orders to modules without them
-    for (const module of modulesWithoutOrder) {
-      await updateModule(module.id, { order: nextOrder });
-      console.log(`Assigned order ${nextOrder} to module "${module.title}"`);
-      nextOrder++;
-    }
-
-    console.log(
-      `Successfully assigned orders to ${modulesWithoutOrder.length} modules`,
-    );
-  } catch (error) {
-    console.error("Error assigning orders to existing modules:", error);
-    throw error;
-  }
 };
 
 export const deleteModule = async (
@@ -458,7 +421,7 @@ export const getPublicModules = async (): Promise<Module[]> => {
   const publicModulesQuery = query(
     modulesRef,
     where("isPublic", "==", true),
-    orderBy("createdAt", "desc"),
+    orderBy("order", "asc"),
   );
   const publicModulesSnapshot = await getDocs(publicModulesQuery);
 

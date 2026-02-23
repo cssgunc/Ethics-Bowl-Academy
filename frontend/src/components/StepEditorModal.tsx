@@ -11,12 +11,14 @@ interface StepEditorModalProps {
   moduleId: string;
   step: Step;
   onClose: () => void;
+  onSave: (step: Step) => void;
 }
 
 export default function StepEditorModal({
   moduleId,
   step,
   onClose,
+  onSave,
 }: StepEditorModalProps) {
   const handleBack = () => {
     onClose();
@@ -30,6 +32,7 @@ export default function StepEditorModal({
           step={step}
           onClose={onClose}
           onBack={handleBack}
+          onSave={onSave}
         />
       );
     case "quiz":
@@ -39,6 +42,7 @@ export default function StepEditorModal({
           step={step}
           onClose={onClose}
           onBack={handleBack}
+          onSave={onSave}
         />
       );
     case "flashcards":
@@ -48,6 +52,7 @@ export default function StepEditorModal({
           step={step}
           onClose={onClose}
           onBack={handleBack}
+          onSave={onSave}
         />
       );
     case "freeResponse":
@@ -57,6 +62,7 @@ export default function StepEditorModal({
           step={step}
           onClose={onClose}
           onBack={handleBack}
+          onSave={onSave}
         />
       );
     case "poll":
@@ -66,6 +72,7 @@ export default function StepEditorModal({
           step={step}
           onClose={onClose}
           onBack={handleBack}
+          onSave={onSave}
         />
       );
     default:

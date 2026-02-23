@@ -4,8 +4,7 @@
       "collectionGroup": "modules",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "isPublic", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        { "fieldPath": "order", "order": "ASCENDING" }
       ]
     },
     {

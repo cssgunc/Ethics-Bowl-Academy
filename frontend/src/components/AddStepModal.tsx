@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { StepType } from "@/lib/firebase/types";
+import { Step, StepType } from "@/lib/firebase/types";
 import VideoEditorModal from "./step-editors/VideoEditorModal";
 import FlashcardsEditorModal from "./step-editors/FlashcardsEditorModal";
 import QuizEditorModal from "./step-editors/QuizEditorModal";
@@ -11,6 +11,7 @@ import PollEditorModal from "./step-editors/PollEditorModal";
 interface AddFeatureModalProps {
   moduleId: string;
   onClose: () => void;
+  onSave: (step: Step) => void;
 }
 
 const stepTypes: {
@@ -19,111 +20,112 @@ const stepTypes: {
   description: string;
   icon: React.ReactNode;
 }[] = [
-  {
-    type: "video",
-    name: "Video",
-    description: "Add a video lesson or tutorial",
-    icon: (
-      <svg
-        className="w-8 h-8 text-red-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-  },
-  {
-    type: "flashcards",
-    name: "Flashcards",
-    description: "Create interactive flashcards for memorization",
-    icon: (
-      <svg
-        className="w-8 h-8 text-blue-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-        />
-      </svg>
-    ),
-  },
-  {
-    type: "quiz",
-    name: "Quiz",
-    description: "Build a multiple choice quiz",
-    icon: (
-      <svg
-        className="w-8 h-8 text-green-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-    ),
-  },
-  {
-    type: "freeResponse",
-    name: "Free Response",
-    description: "Add a written response prompt",
-    icon: (
-      <svg
-        className="w-8 h-8 text-purple-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-        />
-      </svg>
-    ),
-  },
-  {
-    type: "poll",
-    name: "Poll",
-    description: "Create an ethical dilemma poll for voting",
-    icon: (
-      <svg
-        className="w-8 h-8 text-orange-500"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-        />
-      </svg>
-    ),
-  },
-];
+    {
+      type: "video",
+      name: "Video",
+      description: "Add a video lesson or tutorial",
+      icon: (
+        <svg
+          className="w-8 h-8 text-red-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+          />
+        </svg>
+      ),
+    },
+    {
+      type: "flashcards",
+      name: "Flashcards",
+      description: "Create interactive flashcards for memorization",
+      icon: (
+        <svg
+          className="w-8 h-8 text-blue-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+          />
+        </svg>
+      ),
+    },
+    {
+      type: "quiz",
+      name: "Quiz",
+      description: "Build a multiple choice quiz",
+      icon: (
+        <svg
+          className="w-8 h-8 text-green-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      ),
+    },
+    {
+      type: "freeResponse",
+      name: "Free Response",
+      description: "Add a written response prompt",
+      icon: (
+        <svg
+          className="w-8 h-8 text-purple-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+          />
+        </svg>
+      ),
+    },
+    {
+      type: "poll",
+      name: "Poll",
+      description: "Create an ethical dilemma poll for voting",
+      icon: (
+        <svg
+          className="w-8 h-8 text-orange-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+          />
+        </svg>
+      ),
+    },
+  ];
 
 export default function AddFeatureModal({
   moduleId,
   onClose,
+  onSave,
 }: AddFeatureModalProps) {
   const [selectedType, setSelectedType] = useState<StepType | null>(null);
 
@@ -135,6 +137,7 @@ export default function AddFeatureModal({
             moduleId={moduleId}
             onClose={onClose}
             onBack={() => setSelectedType(null)}
+            onSave={onSave}
           />
         );
       case "flashcards":
@@ -143,6 +146,7 @@ export default function AddFeatureModal({
             moduleId={moduleId}
             onClose={onClose}
             onBack={() => setSelectedType(null)}
+            onSave={onSave}
           />
         );
       case "quiz":
@@ -151,6 +155,7 @@ export default function AddFeatureModal({
             moduleId={moduleId}
             onClose={onClose}
             onBack={() => setSelectedType(null)}
+            onSave={onSave}
           />
         );
       case "freeResponse":
@@ -159,6 +164,7 @@ export default function AddFeatureModal({
             moduleId={moduleId}
             onClose={onClose}
             onBack={() => setSelectedType(null)}
+            onSave={onSave}
           />
         );
       case "poll":
@@ -167,6 +173,7 @@ export default function AddFeatureModal({
             moduleId={moduleId}
             onClose={onClose}
             onBack={() => setSelectedType(null)}
+            onSave={onSave}
           />
         );
     }

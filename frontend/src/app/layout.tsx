@@ -14,6 +14,7 @@ import theme from "@/lib/theme";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Toaster } from "sonner";
+import { AlertProvider } from "@/context/AlertContext";
 
 const inter = Inter({
   variable: "--font-primary",
@@ -67,23 +68,25 @@ export default function RootLayout({
         <AppRouterCacheProvider>
           <ThemeProvider theme={theme}>
             <CssBaseline />
-            <Navbar />
-            <Toaster position="top-center" />
+            <AlertProvider>
+              <Navbar />
+              <Toaster position="top-center" />
 
-            <main className="flex-1">
-              <div
-                className="relative w-full min-h-full overflow-hidden"
-                style={{
-                  background: "linear-gradient(to bottom, white 0%, white 1%, #abd8ff 100%)",
-                }}
-              >
-                <div className="relative">
-                  {children}
+              <main className="flex-1">
+                <div
+                  className="relative w-full min-h-full overflow-hidden"
+                  style={{
+                    background: "linear-gradient(to bottom, white 0%, white 1%, #abd8ff 100%)",
+                  }}
+                >
+                  <div className="relative">
+                    {children}
+                  </div>
                 </div>
-              </div>
-            </main>
+              </main>
 
-            <Footer />
+              <Footer />
+            </AlertProvider>
           </ThemeProvider>
         </AppRouterCacheProvider>
       </body>
