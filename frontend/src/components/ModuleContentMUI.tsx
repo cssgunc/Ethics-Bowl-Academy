@@ -463,12 +463,13 @@ export default function ModuleContentMUI({
             variant="h3"
             component="h1"
             sx={{
-              fontSize: "3rem",
-              fontWeight: "bold",
-              fontFamily: "var(--font-secondary)",
-              color: (t) => t.palette.error.main,
+              fontSize: "2.5rem",
+              fontWeight: 300,
+              fontFamily: "Georgia, 'Times New Roman', Times, serif",
+              color: "#2c3e50",
               mb: 0.5,
-              textShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              letterSpacing: "0.02em",
+              lineHeight: 1.2,
             }}
           >
             Welcome to Module {index + 1}
@@ -478,12 +479,14 @@ export default function ModuleContentMUI({
             variant="h3"
             component="h2"
             sx={{
-              fontSize: "3rem",
-              fontWeight: "bold",
-              fontFamily: "var(--font-secondary)",
-              color: (t) => t.palette.error.main,
+              fontSize: "3.5rem",
+              fontWeight: 400,
+              fontFamily: "Georgia, 'Times New Roman', Times, serif",
+              color: "#2c3e50",
               mb: 2,
-              textShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              letterSpacing: "-0.01em",
+              lineHeight: 1.1,
+              fontStyle: "italic",
             }}
           >
             {content?.title}
