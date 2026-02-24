@@ -1,11 +1,14 @@
 "use client";
 
 import { Step } from "@/lib/firebase/types";
+import type { SortingStep } from "@/lib/firebase/types";
+
 import VideoEditorModal from "./step-editors/VideoEditorModal";
 import QuizEditorModal from "./step-editors/QuizEditorModal";
 import FlashcardsEditorModal from "./step-editors/FlashcardsEditorModal";
 import FreeResponseEditorModal from "./step-editors/FreeResponseEditorModal";
 import PollEditorModal from "./step-editors/PollEditorModal";
+import SortingEditorModal from "./step-editors/SortingEditorModal";
 
 interface StepEditorModalProps {
   moduleId: string;
@@ -20,9 +23,7 @@ export default function StepEditorModal({
   onClose,
   onSave,
 }: StepEditorModalProps) {
-  const handleBack = () => {
-    onClose();
-  };
+  const handleBack = () => onClose();
 
   switch (step.type) {
     case "video":
@@ -35,6 +36,7 @@ export default function StepEditorModal({
           onSave={onSave}
         />
       );
+
     case "quiz":
       return (
         <QuizEditorModal
@@ -45,6 +47,7 @@ export default function StepEditorModal({
           onSave={onSave}
         />
       );
+
     case "flashcards":
       return (
         <FlashcardsEditorModal
@@ -55,6 +58,7 @@ export default function StepEditorModal({
           onSave={onSave}
         />
       );
+
     case "freeResponse":
       return (
         <FreeResponseEditorModal
@@ -65,6 +69,18 @@ export default function StepEditorModal({
           onSave={onSave}
         />
       );
+
+    case "sorting":
+      return (
+        <SortingEditorModal
+          moduleId={moduleId}
+          step={step as SortingStep}
+          onClose={onClose}
+          onBack={handleBack}
+          onSave={onSave}
+        />
+      );
+
     case "poll":
       return (
         <PollEditorModal
@@ -75,6 +91,7 @@ export default function StepEditorModal({
           onSave={onSave}
         />
       );
+
     default:
       return null;
   }

@@ -7,6 +7,7 @@ import FlashcardsEditorModal from "./step-editors/FlashcardsEditorModal";
 import QuizEditorModal from "./step-editors/QuizEditorModal";
 import FreeResponseEditorModal from "./step-editors/FreeResponseEditorModal";
 import PollEditorModal from "./step-editors/PollEditorModal";
+import SortingEditorModal from "./step-editors/SortingEditorModal";
 
 interface AddFeatureModalProps {
   moduleId: string;
@@ -101,6 +102,26 @@ const stepTypes: {
       ),
     },
     {
+      type: "sorting",
+      name: "Sorting Question",
+      description: "Drag cards into labeled buckets",
+      icon: (
+        <svg
+          className="w-8 h-8 text-cyan-600"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 7h7M3 12h11M3 17h7M14 7h7M18 7v10m0 0l-2-2m2 2l2-2"
+          />
+        </svg>
+      ),
+    },
+    {
       type: "poll",
       name: "Poll",
       description: "Create an ethical dilemma poll for voting",
@@ -170,6 +191,15 @@ export default function AddFeatureModal({
       case "poll":
         return (
           <PollEditorModal
+            moduleId={moduleId}
+            onClose={onClose}
+            onBack={() => setSelectedType(null)}
+            onSave={onSave}
+          />
+        );
+      case "sorting":
+        return (
+          <SortingEditorModal
             moduleId={moduleId}
             onClose={onClose}
             onBack={() => setSelectedType(null)}
