@@ -66,6 +66,7 @@ export interface PollOption {
 // Base Step Interface
 export interface StepBase {
   id: string;
+  moduleId: string;
   type: StepType;
   title: string;
   order: number;
@@ -76,7 +77,7 @@ export interface StepBase {
   updatedAt: Date;
 }
 
-export type StepType = "video" | "quiz" | "flashcards" | "freeResponse" | "poll";
+export type StepType = "video" | "quiz" | "flashcards" | "freeResponse" | "sorting" | "poll";
 
 // Subcollection name mapping
 export const STEP_COLLECTIONS = {
@@ -84,6 +85,7 @@ export const STEP_COLLECTIONS = {
   quiz: "quizzes",
   flashcards: "flashcards",
   freeResponse: "freeResponses",
+  sorting: "sorting",
   poll: "polls",
 } as const;
 
@@ -117,7 +119,22 @@ export interface FreeResponseStep extends StepBase {
   sampleAnswer?: string;
   maxLength?: number;
 }
+export interface SortingBucket {
+  id: string;
+  label: string;
+}
 
+export interface SortingCard {
+  id: string;
+  text: string;
+}
+
+export interface SortingStep extends StepBase {
+  type: "sorting";
+  prompt: string;
+  buckets: SortingBucket[];
+  cards: SortingCard[];
+}
 export interface PollStep extends StepBase {
   type: "poll";
   question: string;
@@ -126,7 +143,7 @@ export interface PollStep extends StepBase {
 }
 
 // Step type used throughout the app
-export type Step = VideoStep | QuizStep | FlashcardsStep | FreeResponseStep | PollStep;
+export type Step = VideoStep | QuizStep | FlashcardsStep | FreeResponseStep | SortingStep | PollStep;
 
 // Journal
 export interface JournalEntry {
