@@ -7,8 +7,15 @@ import Toolbar from "@mui/material/Toolbar";
 import IconButton from "@mui/material/IconButton";
 import Container from "@mui/material/Container";
 import Button from "@mui/material/Button";
+import Drawer from "@mui/material/Drawer";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemText from "@mui/material/ListItemText";
+import Divider from "@mui/material/Divider";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import Home from "@mui/icons-material/Home";
+import MenuIcon from "@mui/icons-material/Menu";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -19,6 +26,7 @@ import { usePathname } from "next/navigation";
 export default function Navbar() {
   const [user] = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -51,12 +59,19 @@ export default function Navbar() {
     };
   }, [user]);
 
+  const navItems = [
+    { label: "Home", href: "/homepage" },
+    { label: "Modules", href: "/student" },
+    { label: "Journal", href: "/journal" },
+    ...(isAdmin ? [{ label: "Admin Dashboard", href: "/admin" }] : []),
+  ];
+
   return (
     <AppBar
       position="static"
       sx={{
         backgroundColor: "info.main",
-        boxShadow: "none",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
       }}
     >
       <Container maxWidth="xl">
@@ -81,7 +96,8 @@ export default function Navbar() {
             />
           </Box>
 
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {/* Desktop nav buttons */}
+          <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 2 }}>
             {user && (
               <>
               <IconButton
@@ -160,8 +176,51 @@ export default function Navbar() {
               <AccountCircle sx={{ fontSize: 40 }} />
             </IconButton>
           </Box>
+
+          {/* Mobile: hamburger + profile */}
+          <Box sx={{ display: { xs: "flex", md: "none" }, alignItems: "center", gap: 1 }}>
+            <IconButton
+              component={Link}
+              href="/profile"
+              sx={{ color: "primary.main" }}
+            >
+              <AccountCircle sx={{ fontSize: 36 }} />
+            </IconButton>
+            {user && (
+              <IconButton
+                onClick={() => setDrawerOpen(true)}
+                sx={{ color: "white" }}
+              >
+                <MenuIcon sx={{ fontSize: 32 }} />
+              </IconButton>
+            )}
+          </Box>
         </Toolbar>
       </Container>
+
+      {/* Mobile drawer */}
+      <Drawer
+        anchor="right"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        <Box sx={{ width: 250 }} role="presentation">
+          <List>
+            {navItems.map((item) => (
+              <ListItem key={item.href} disablePadding>
+                <ListItemButton
+                  component={Link}
+                  href={item.href}
+                  onClick={() => setDrawerOpen(false)}
+                  selected={pathname === item.href}
+                >
+                  <ListItemText primary={item.label} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      </Drawer>
     </AppBar>
   );
 }

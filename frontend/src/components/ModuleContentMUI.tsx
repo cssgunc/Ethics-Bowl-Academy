@@ -240,11 +240,11 @@ export default function ModuleContentMUI({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            p: 2,
+            p: { xs: 1.5, md: 2 },
             bgcolor: "white",
-            borderTopRightRadius: "16px",
+            borderTopRightRadius: { xs: 0, md: "16px" },
             border: `1px solid ${theme.palette.grey[300]}`,
-            borderLeft: "none",
+            borderLeft: { xs: "none", md: "none" },
           }}
         >
           {currentStepIndex === 0 ? (
@@ -435,17 +435,16 @@ export default function ModuleContentMUI({
       sx={{
         display: "flex",
         flexDirection: "column",
-        px: "4vw",
-        pt: "2vw",
-        pb: "4vw",
+        px: { xs: 2, md: "4vw" },
+        pt: { xs: 2, md: "2vw" },
       }}
     >
       {/* Decorative Header Section */}
       <Box
         sx={{
           position: "relative",
-          mb: 4,
-          pb: 3,
+          mb: { xs: 2, md: 2 },
+          pb: { xs: 0, md: 1 },
         }}
       >
         {/* Decorative background shape - more visible */}
@@ -483,7 +482,7 @@ export default function ModuleContentMUI({
             variant="h3"
             component="h1"
             sx={{
-              fontSize: "2.5rem",
+              fontSize: { xs: "1.5rem", md: "2.5rem" },
               fontWeight: 300,
               fontFamily: "Georgia, 'Times New Roman', Times, serif",
               color: "#2c3e50",
@@ -499,11 +498,11 @@ export default function ModuleContentMUI({
             variant="h3"
             component="h2"
             sx={{
-              fontSize: "3.5rem",
+              fontSize: { xs: "2.5rem", md: "3.5rem" },
               fontWeight: 400,
               fontFamily: "Georgia, 'Times New Roman', Times, serif",
               color: "#2c3e50",
-              mb: 2,
+              mb: { xs: 0.5, md: 1 },
               letterSpacing: "-0.01em",
               lineHeight: 1.1,
               fontStyle: "italic",
@@ -520,7 +519,7 @@ export default function ModuleContentMUI({
               background:
                 "linear-gradient(90deg, rgba(171, 216, 255, 0.8) 0%, rgba(171, 216, 255, 0.2) 100%)",
               borderRadius: "2px",
-              mt: 2,
+              mt: { xs: 1, md: 2 },
             }}
           />
         </Box>
@@ -534,8 +533,8 @@ export default function ModuleContentMUI({
           borderRadius: "24px",
           boxShadow:
             "0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05)",
-          p: 4,
-          mb: 4,
+          p: { xs: 2.5, md: 4 },
+          mb: { xs: 2, md: 4 },
           position: "relative",
           overflow: "hidden",
           "&::before": {
@@ -638,7 +637,7 @@ export default function ModuleContentMUI({
                   >
                     {isCompleted ? (
                       <div
-                        className="w-[50px] h-[50px] rounded-full border border-gray-300 flex items-center justify-center font-bold text-white min-w-[32px] p-0 bg-green-600 transition-all duration-300 shadow-md hover:shadow-lg"
+                        className="w-[36px] h-[36px] md:w-[50px] md:h-[50px] rounded-full border border-gray-300 flex items-center justify-center font-bold text-white min-w-[32px] p-0 bg-green-600 transition-all duration-300 shadow-md hover:shadow-lg text-sm md:text-base"
                         style={{
                           transition: "all 0.3s ease",
                         }}
@@ -647,7 +646,7 @@ export default function ModuleContentMUI({
                       </div>
                     ) : (
                       <div
-                        className={`w-[50px] h-[50px] rounded-full border border-gray-300 flex items-center justify-center font-bold min-w-[32px] p-0 transition-all duration-300 ${
+                        className={`w-[36px] h-[36px] md:w-[50px] md:h-[50px] rounded-full border border-gray-300 flex items-center justify-center font-bold min-w-[32px] p-0 transition-all duration-300 text-sm md:text-base ${
                           navigable
                             ? "text-gray-800 bg-gray-100 hover:border-blue-300 hover:bg-blue-50"
                             : "text-gray-400 bg-gray-50 opacity-60"

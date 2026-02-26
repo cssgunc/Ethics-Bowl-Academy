@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getPublicModules } from "@/lib/firebase/db-operations";
 
 interface Module {
@@ -17,6 +17,7 @@ interface SidebarProps {
 
 export default function Sidebar({ selectedModule, onSelect, onSelectIndex }: SidebarProps) {
   const [modules, setModules] = useState<Module[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleModuleClick = (moduleId: string) => {
     onSelect(moduleId);
@@ -30,9 +31,9 @@ export default function Sidebar({ selectedModule, onSelect, onSelectIndex }: Sid
         .map(mod => ({
           id: mod.id,
           title: mod.title,
-          order: mod.order || 999 // Default high order for modules without order
+          order: mod.order || 999
         }))
-        .sort((a, b) => a.order - b.order); // Sort by order ascending
+        .sort((a, b) => a.order - b.order);
       setModules(mappedModules);
     };
     fetchModules();
@@ -46,8 +47,9 @@ export default function Sidebar({ selectedModule, onSelect, onSelectIndex }: Sid
   }, [modules]);
 
   return (
-    <div className="hidden md:block w-60 bg-white border border-gray-300 h-full overflow-y-auto font-secondary rounded-l-xl">
-      <div>
+    <>
+      {/* Desktop sidebar */}
+      <div className="hidden md:block w-60 shrink-0 bg-white border border-gray-300 overflow-y-auto font-secondary rounded-l-xl max-h-[calc(100vh-120px)]">
         <nav>
           {modules.map((module, index) => (
             <div key={module.id} className={`${index < modules.length - 1 ? "border-b border-gray-300" : ""}`}>
@@ -75,6 +77,32 @@ export default function Sidebar({ selectedModule, onSelect, onSelectIndex }: Sid
           ))}
         </nav>
       </div>
-    </div>
+
+      {/* Mobile horizontal scrollable bar */}
+      <div
+        ref={scrollRef}
+        className="flex md:hidden overflow-x-auto gap-2 px-3 py-3 bg-white border-b border-gray-300 -mx-0"
+        style={{
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
+        {modules.map((module, index) => (
+          <button
+            key={module.id}
+            onClick={() => handleModuleClick(module.id)}
+            className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-200 border ${
+              selectedModule === module.id
+                ? "bg-light-carolina-blue text-black border-blue-300 font-bold"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            Module {index + 1}: {module.title}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }

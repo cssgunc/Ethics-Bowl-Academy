@@ -17,10 +17,10 @@ export default function HomepagePage() {
 
   // Placeholder images - replace with actual images later
   const carouselImages = [
-    "https://via.placeholder.com/800x400/4A90E2/FFFFFF?text=Ethics+in+Action",
-    "https://via.placeholder.com/800x400/7B68EE/FFFFFF?text=Moral+Reasoning",
-    "https://via.placeholder.com/800x400/50C878/FFFFFF?text=Ethical+Dilemmas",
-    "https://via.placeholder.com/800x400/FF6B6B/FFFFFF?text=Philosophy+Practice",
+    "/animal-rescue.jpg",
+    "/living.jpg",
+    "/save-one.jpg",
+    "/believe.jpg",
   ];
 
   const nextSlide = () => {
@@ -35,7 +35,8 @@ export default function HomepagePage() {
 
   return (
     <Container
-      maxWidth="lg"
+      maxWidth={false}
+      disableGutters
       sx={{
         minHeight: "100vh",
         position: "relative",
@@ -45,7 +46,7 @@ export default function HomepagePage() {
       }}
     >
       <AuthGate>
-        <Box sx={{ py: 6, textAlign: "center", position: "relative" }}>
+        <Box sx={{ py: { xs: 3, md: 6 }, textAlign: "center", position: "relative" }}>
           {/* Background dot grid pattern over white-to-light-blue gradient - matches Modules Page */}
           <Box
             sx={{
@@ -80,7 +81,7 @@ export default function HomepagePage() {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                gap: 1,
+                gap: 2,
               }}
             >
               {/* Welcome message */}
@@ -127,9 +128,8 @@ export default function HomepagePage() {
                 textShadow: "0 1px 2px rgba(255, 255, 255, 0.8)",
               }}
             >
-              Develop critical thinking and ethical reasoning skills through
-              interactive learning modules, structured debate preparation, and
-              reflective philosophical discourse.
+              Build critical thinking and ethical reasoning skills through
+              interactive modules and structured debate preparation.
             </Typography>
 
             <Button
@@ -157,7 +157,7 @@ export default function HomepagePage() {
                 alt={`Slide ${currentSlide + 1}`}
                 sx={{
                   width: "100%",
-                  height: "400px",
+                  height: { xs: "200px", md: "400px" },
                   objectFit: "cover",
                   transition: "opacity 0.3s ease-in-out",
                 }}
