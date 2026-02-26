@@ -8,6 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import Container from "@mui/material/Container";
 import Button from "@mui/material/Button";
 import AccountCircle from "@mui/icons-material/AccountCircle";
+import Home from "@mui/icons-material/Home";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -83,6 +84,15 @@ export default function Navbar() {
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             {user && (
               <>
+              <IconButton
+                component={Link}
+                href="/homepage"
+                sx={{
+                  color: pathname === "/homepage" ? "primary.main" : "white",
+                }}
+              >
+                <Home sx={{ fontSize: 40 }} />
+              </IconButton>
               <Button
               component={Link}
               href="/student"

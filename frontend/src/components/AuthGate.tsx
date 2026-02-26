@@ -24,7 +24,7 @@ export default function AuthGate({
   requireAdmin,
   redirectRoute = false,
   adminPath = "/admin",
-  studentPath = "/student",
+  studentPath = "/homepage",
 }: AuthGateProps) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
@@ -32,7 +32,9 @@ export default function AuthGate({
 
   useEffect(() => {
     if (!app) {
-      console.error('Firebase app not initialized. Check environment variables.');
+      console.error(
+        "Firebase app not initialized. Check environment variables.",
+      );
       router.replace("/login");
       return;
     }
