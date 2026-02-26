@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { FreeResponseStep } from "@/lib/firebase/types";
 import { saveFreeResponseToJournal } from "@/lib/firebase/db-operations";
+import StepContent from "@/components/StepContent";
 
 interface FreeResponseProps {
   step: FreeResponseStep;
@@ -109,6 +110,7 @@ export default function FreeResponseStepView({
 
         {/* Prompt Text */}
         <Typography
+          component="div"
           sx={{
             fontSize: "1rem",
             color: theme.palette.common.black,
@@ -119,7 +121,7 @@ export default function FreeResponseStepView({
             lineHeight: 1.6,
           }}
         >
-          {step.prompt}
+          <StepContent content={step.prompt} />
         </Typography>
 
         {/* Text Input Area */}
