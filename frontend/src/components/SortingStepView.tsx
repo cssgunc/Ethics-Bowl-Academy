@@ -119,7 +119,12 @@ export default function SortingStepView({
   }, [placements, allCardsPlaced, lockAfterSubmit]);
 
   // Correctness helpers (only after submit + if answerKey exists)
-  const hasAnswerKey = !!step.answerKey && Object.keys(step.answerKey).length > 0;
+  const cleanedAnswerKey = useMemo(
+    () => cleanAnswerKey(step.answerKey ?? {}, step.cards ?? [], step.buckets ?? []),
+    [step.answerKey, step.cards, step.buckets]
+  );
+
+  const hasAnswerKey = Object.keys(cleanedAnswerKey).length > 0;
 
   const isCardCorrect = (cardId: string): boolean | null => {
     if (!submitted) return null;
@@ -149,13 +154,6 @@ export default function SortingStepView({
     setSubmitted(true);
     onSubmittedChange?.(true);
   };
-
-  const cleanedAnswerKey = useMemo(
-      () => cleanAnswerKey(step.answerKey ?? {}, step.cards ?? [], step.buckets ?? []),
-      [step.answerKey, step.cards, step.buckets]
-    );
-
-  const hasAnswerKey = Object.keys(cleanedAnswerKey).length > 0;
 
   // -------- DnD handlers (more reliable) --------
   const onCardDragStart = (e: React.DragEvent, cardId: string) => {
