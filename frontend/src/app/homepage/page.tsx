@@ -381,19 +381,17 @@ export default function HomepagePage() {
                     fontFamily: "Georgia, 'Times New Roman', Times, serif",
                     color: "#2c3e50",
                     letterSpacing: "0.01em",
+                    textWrap: "balance",
                   }}
                 >
-                  NC High School Ethics Bowl
+                  National High School Ethics Bowl
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  The North Carolina High School Ethics Bowl, headquartered at
-                  the Parr Center for Ethics at UNC Chapel Hill, brings students
-                  together to discuss complex ethical dilemmas through regional
-                  and national competitions.
+                The National High School Ethics Bowl (NHSEB) promotes respectful, supportive, and rigorous discussion of ethics among thousands of high school students nationwide
                 </Typography>
                 <Button
                   variant="outlined"
-                  href="https://parrcenter.unc.edu/nchseb/"
+                  href="https://nhseb.org/"
                   target="_blank"
                   endIcon={
                     <OpenInNew sx={{ fontSize: 16, color: "inherit" }} />
