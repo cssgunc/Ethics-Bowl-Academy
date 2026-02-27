@@ -2,6 +2,19 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Typography, Paper, Stack, Button, Chip, Divider } from "@mui/material";
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverlay,
+  useDroppable,
+  useDraggable,
+  pointerWithin,
+} from "@dnd-kit/core";
 import type { SortingStep } from "@/lib/firebase/types";
 
 type ContainerId = "bank" | string; // "bank" or bucketId
@@ -41,21 +54,13 @@ function groupCards(step: SortingStep, placements: Placements) {
   return { bank, byBucket };
 }
 
-function cardCountInContainer(placements: Placements, containerId: ContainerId) {
-  let count = 0;
-  for (const cardId of Object.keys(placements)) {
-    if ((placements[cardId] ?? "bank") === containerId) count++;
-  }
-  return count;
-}
-
 function cleanAnswerKey(
   answerKey: Record<string, string>,
   cards: { id: string }[],
   buckets: { id: string }[]
 ) {
-  const cardIds = new Set(cards.map(c => c.id));
-  const bucketIds = new Set(buckets.map(b => b.id));
+  const cardIds = new Set(cards.map((c) => c.id));
+  const bucketIds = new Set(buckets.map((b) => b.id));
 
   const cleaned: Record<string, string> = {};
   for (const [cardId, bucketId] of Object.entries(answerKey ?? {})) {
@@ -66,22 +71,177 @@ function cleanAnswerKey(
   return cleaned;
 }
 
+// -------- @dnd-kit sub-components --------
+
+function DroppableZone({
+  id,
+  title,
+  hint,
+  children,
+  minHeight = 160,
+  correctnessBorder,
+  cardCount,
+}: {
+  id: string;
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+  minHeight?: number;
+  correctnessBorder?: "success" | "error" | "none";
+  cardCount: number;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  const borderColor =
+    correctnessBorder === "success"
+      ? "success.main"
+      : correctnessBorder === "error"
+      ? "error.main"
+      : isOver
+      ? "primary.main"
+      : "grey.300";
+
+  const bg =
+    correctnessBorder === "success"
+      ? "rgba(46, 125, 50, 0.06)"
+      : correctnessBorder === "error"
+      ? "rgba(211, 47, 47, 0.06)"
+      : isOver
+      ? "primary.50"
+      : "transparent";
+
+  return (
+    <Paper
+      ref={setNodeRef}
+      elevation={0}
+      sx={{
+        borderRadius: "18px",
+        border: "2px dashed",
+        borderColor,
+        bgcolor: bg,
+        p: 2,
+        minHeight,
+        transition: "all 120ms ease",
+      }}
+    >
+      {/* Header */}
+      <Stack
+        direction="row"
+        alignItems="baseline"
+        justifyContent="space-between"
+        mb={1}
+      >
+        <Box>
+          <Typography sx={{ fontWeight: 900, fontSize: "1rem" }}>
+            {title}
+          </Typography>
+          {hint && (
+            <Typography sx={{ color: "grey.600", fontSize: "0.85rem" }}>
+              {hint}
+            </Typography>
+          )}
+        </Box>
+
+        <Chip
+          size="small"
+          label={`${cardCount} card${cardCount === 1 ? "" : "s"}`}
+          variant="outlined"
+          sx={{ fontWeight: 700 }}
+        />
+      </Stack>
+
+      <Stack spacing={1.25}>{children}</Stack>
+    </Paper>
+  );
+}
+
+function DraggableCard({
+  card,
+  canInteract,
+  showCorrectness,
+  correctness,
+}: {
+  card: { id: string; text: string };
+  canInteract: boolean;
+  showCorrectness: boolean;
+  correctness: boolean | null;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: card.id,
+    disabled: !canInteract,
+  });
+
+  const cardBorder = showCorrectness
+    ? correctness
+      ? "success.main"
+      : "error.main"
+    : "grey.300";
+
+  const cardBg = showCorrectness
+    ? correctness
+      ? "rgba(46, 125, 50, 0.08)"
+      : "rgba(211, 47, 47, 0.08)"
+    : "grey.50";
+
+  return (
+    <Paper
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      elevation={0}
+      sx={{
+        px: 1.5,
+        py: 1.25,
+        borderRadius: "14px",
+        border: "2px solid",
+        borderColor: cardBorder,
+        bgcolor: cardBg,
+        opacity: isDragging ? 0.35 : 1,
+        cursor: canInteract ? "grab" : "default",
+        userSelect: "none",
+        transition:
+          "transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease",
+        "&:hover": canInteract
+          ? {
+              boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+              transform: "translateY(-1px)",
+            }
+          : {},
+      }}
+    >
+      <Typography sx={{ fontSize: "0.95rem", fontWeight: 700 }}>
+        {card.text}
+      </Typography>
+    </Paper>
+  );
+}
+
+// -------- Main component --------
+
 export default function SortingStepView({
   step,
   onSubmittedChange,
   onPlacementsChange,
   lockAfterSubmit = false,
 }: SortingStepViewProps) {
-  const [placements, setPlacements] = useState<Placements>(() => buildInitialPlacements(step));
-  const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
-  const [dragOverZone, setDragOverZone] = useState<ContainerId | null>(null);
+  const [placements, setPlacements] = useState<Placements>(() =>
+    buildInitialPlacements(step)
+  );
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+
+  // DnD sensors (same pattern as ModulesPage)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor)
+  );
 
   // Reset when step changes
   useEffect(() => {
     setPlacements(buildInitialPlacements(step));
-    setDraggingCardId(null);
-    setDragOverZone(null);
+    setActiveDragId(null);
     setSubmitted(false);
     onSubmittedChange?.(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,7 +251,10 @@ export default function SortingStepView({
     onPlacementsChange?.(placements);
   }, [placements, onPlacementsChange]);
 
-  const { bank, byBucket } = useMemo(() => groupCards(step, placements), [step, placements]);
+  const { bank, byBucket } = useMemo(
+    () => groupCards(step, placements),
+    [step, placements]
+  );
 
   const containerIds: ContainerId[] = useMemo(
     () => ["bank", ...step.buckets.map((b) => b.id)],
@@ -107,9 +270,6 @@ export default function SortingStepView({
   useEffect(() => {
     if (!submitted) return;
     if (!lockAfterSubmit) {
-      // If they move anything, treat it as not submitted anymore (simple + clear UX)
-      // We detect this by allowing changes to trigger this effect.
-      // But we only force "unsubmit" if they have a card back in bank (so they can't game the gate).
       if (!allCardsPlaced) {
         setSubmitted(false);
         onSubmittedChange?.(false);
@@ -120,7 +280,8 @@ export default function SortingStepView({
 
   // Correctness helpers (only after submit + if answerKey exists)
   const cleanedAnswerKey = useMemo(
-    () => cleanAnswerKey(step.answerKey ?? {}, step.cards ?? [], step.buckets ?? []),
+    () =>
+      cleanAnswerKey(step.answerKey ?? {}, step.cards ?? [], step.buckets ?? []),
     [step.answerKey, step.cards, step.buckets]
   );
 
@@ -131,7 +292,7 @@ export default function SortingStepView({
     if (!hasAnswerKey) return null;
 
     const correctBucketId = cleanedAnswerKey[cardId];
-    if (!correctBucketId) return null; // unknown key for this card
+    if (!correctBucketId) return null;
 
     const placed = placements[cardId] ?? "bank";
     if (placed === "bank") return false;
@@ -155,257 +316,51 @@ export default function SortingStepView({
     onSubmittedChange?.(true);
   };
 
-  // -------- DnD handlers (more reliable) --------
-  const onCardDragStart = (e: React.DragEvent, cardId: string) => {
-    if (!canInteract) {
-      e.preventDefault();
-      return;
-    }
-    setDraggingCardId(cardId);
-
-    // Put cardId in multiple formats for browser reliability
-    e.dataTransfer.setData("text/plain", cardId);
-    e.dataTransfer.setData("application/x-ethicsbowl-card", cardId);
-    e.dataTransfer.effectAllowed = "move";
+  // -------- @dnd-kit handlers --------
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
   };
 
-  const onCardDragEnd = () => {
-    setDraggingCardId(null);
-    setDragOverZone(null);
-  };
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
 
-  // IMPORTANT: dragenter + dragover with preventDefault -> consistent first-drop
-  const onZoneDragEnter = (e: React.DragEvent, zoneId: ContainerId) => {
-    if (!canInteract) return;
-    e.preventDefault();
-    if (dragOverZone !== zoneId) setDragOverZone(zoneId);
-  };
+    if (!over) return;
 
-  const onZoneDragOver = (e: React.DragEvent, zoneId: ContainerId) => {
-    if (!canInteract) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    if (dragOverZone !== zoneId) setDragOverZone(zoneId);
-  };
+    const cardId = active.id as string;
+    const targetZone = over.id as ContainerId;
 
-  const onZoneDragLeave = (_e: React.DragEvent, zoneId: ContainerId) => {
-    if (dragOverZone === zoneId) setDragOverZone(null);
-  };
+    if (!containerIds.includes(targetZone)) return;
 
-  const onZoneDrop = (e: React.DragEvent, zoneId: ContainerId) => {
-    if (!canInteract) return;
-    e.preventDefault();
+    const currentContainer = placements[cardId] ?? "bank";
+    if (currentContainer === targetZone) return;
 
-    const cardId =
-      e.dataTransfer.getData("application/x-ethicsbowl-card") ||
-      e.dataTransfer.getData("text/plain");
+    moveCardTo(cardId, targetZone);
 
-    if (!cardId) return;
-    if (!containerIds.includes(zoneId)) return;
-
-    moveCardTo(cardId, zoneId);
-
-    setDragOverZone(null);
-    setDraggingCardId(null);
-
-    // If they had submitted and interaction isn't locked, any move means "not submitted" anymore.
     if (submitted && !lockAfterSubmit) {
       setSubmitted(false);
       onSubmittedChange?.(false);
     }
   };
 
-  // -------- UI components --------
-  const Zone = ({
-    id,
-    title,
-    hint,
-    children,
-    minHeight = 160,
-    correctnessBorder,
-  }: {
-    id: ContainerId;
-    title: string;
-    hint?: string;
-    children: React.ReactNode;
-    minHeight?: number;
-    correctnessBorder?: "success" | "error" | "none";
-  }) => {
-    const isOver = dragOverZone === id;
+  // Find the active card for DragOverlay
+  const activeCard = activeDragId
+    ? step.cards.find((c) => c.id === activeDragId)
+    : null;
 
-    const borderColor =
-      correctnessBorder === "success"
-        ? "success.main"
-        : correctnessBorder === "error"
-        ? "error.main"
-        : isOver
-        ? "primary.main"
-        : "grey.300";
-
-    const bg =
-      correctnessBorder === "success"
-        ? "rgba(46, 125, 50, 0.06)"
-        : correctnessBorder === "error"
-        ? "rgba(211, 47, 47, 0.06)"
-        : isOver
-        ? "primary.50"
-        : "transparent";
-
-    return (
-      <Paper
-        elevation={0}
-        sx={{
-          borderRadius: "18px",
-          border: "2px dashed",
-          borderColor,
-          bgcolor: bg,
-          p: 2,
-          minHeight,
-          transition: "all 120ms ease",
-        }}
-      >
-        {/* Header */}
-        <Stack
-          direction="row"
-          alignItems="baseline"
-          justifyContent="space-between"
-          mb={1}
-        >
-          <Box>
-            <Typography sx={{ fontWeight: 900, fontSize: "1rem" }}>
-              {title}
-            </Typography>
-            {hint && (
-              <Typography sx={{ color: "grey.600", fontSize: "0.85rem" }}>
-                {hint}
-              </Typography>
-            )}
-          </Box>
-
-          <Chip
-            size="small"
-            label={`${cardCountInContainer(placements, id)} card${
-              cardCountInContainer(placements, id) === 1 ? "" : "s"
-            }`}
-            variant="outlined"
-            sx={{ fontWeight: 700 }}
-          />
-        </Stack>
-
-        {/* ✅ FULL DROP SURFACE (fixes 2-drag issue) */}
-        <Box
-          onDragEnter={(e) => {
-            if (!canInteract) return;
-            e.preventDefault(); // REQUIRED
-            setDragOverZone(id);
-          }}
-          onDragOver={(e) => {
-            if (!canInteract) return;
-            e.preventDefault(); // REQUIRED for drop to work
-            e.dataTransfer.dropEffect = "move";
-            setDragOverZone(id);
-          }}
-          onDragLeave={(e) => {
-            // Only clear highlight if truly leaving the zone
-            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-              setDragOverZone(null);
-            }
-          }}
-          onDrop={(e) => {
-            if (!canInteract) return;
-            e.preventDefault(); // REQUIRED
-
-            const cardId =
-              e.dataTransfer.getData("application/x-ethicsbowl-card") ||
-              e.dataTransfer.getData("text/plain");
-
-            if (!cardId) return;
-
-            moveCardTo(cardId, id);
-
-            setDragOverZone(null);
-            setDraggingCardId(null);
-
-            // If allowing re-edit after submit
-            if (submitted && !lockAfterSubmit) {
-              setSubmitted(false);
-              onSubmittedChange?.(false);
-            }
-          }}
-          sx={{
-            minHeight: minHeight - 56,
-            borderRadius: "14px",
-          }}
-        >
-          <Stack spacing={1.25}>{children}</Stack>
-        </Box>
-      </Paper>
-    );
-  };
-
-  const Card = ({ card }: { card: SortingStep["cards"][number] }) => {
-    const isDragging = draggingCardId === card.id;
-
-    const correctness = isCardCorrect(card.id); // true/false/null
-    const showCorrectness = submitted && hasAnswerKey && correctness !== null;
-
-    const cardBorder = showCorrectness
-      ? correctness
-        ? "success.main"
-        : "error.main"
-      : "grey.300";
-
-    const cardBg = showCorrectness
-      ? correctness
-        ? "rgba(46, 125, 50, 0.08)"
-        : "rgba(211, 47, 47, 0.08)"
-      : "grey.50";
-
-    return (
-      <Paper
-        draggable={canInteract}
-        onDragStart={(e) => onCardDragStart(e, card.id)}
-        onDragEnd={onCardDragEnd}
-        elevation={0}
-        sx={{
-          px: 1.5,
-          py: 1.25,
-          borderRadius: "14px",
-          border: "2px solid",
-          borderColor: cardBorder,
-          bgcolor: cardBg,
-          opacity: isDragging ? 0.35 : 1,
-          cursor: canInteract ? "grab" : "default",
-          userSelect: "none",
-          transition: "transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease",
-          "&:hover": canInteract
-            ? {
-                boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-                transform: "translateY(-1px)",
-              }
-            : {},
-        }}
-      >
-        <Typography sx={{ fontSize: "0.95rem", fontWeight: 700 }}>{card.text}</Typography>
-      </Paper>
-    );
-  };
-
-  // Optional bucket correctness borders after submit:
-  // If answerKey exists, mark a bucket green only if all cards inside it are correct and no missing.
-  const bucketBorderStatus = (bucketId: string): "success" | "error" | "none" => {
+  // Bucket correctness borders after submit
+  const bucketBorderStatus = (
+    bucketId: string
+  ): "success" | "error" | "none" => {
     if (!submitted || !hasAnswerKey) return "none";
 
-    // Get cards currently in bucket
     const cardsInBucket = (byBucket[bucketId] ?? []).map((c) => c.id);
 
-    // If any card in this bucket is incorrect, mark error
     for (const cardId of cardsInBucket) {
       const correct = isCardCorrect(cardId);
       if (correct === false) return "error";
     }
 
-    // If bucket has any cards and all are correct, success; otherwise none
     if (cardsInBucket.length > 0) return "success";
     return "none";
   };
@@ -425,7 +380,13 @@ export default function SortingStepView({
       <Divider sx={{ mb: 2 }} />
 
       {/* Controls */}
-      <Stack direction="row" spacing={1} sx={{ mb: 2 }} alignItems="center" flexWrap="wrap">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ mb: 2 }}
+        alignItems="center"
+        flexWrap="wrap"
+      >
         <Chip
           label={submitted ? "Submitted" : "Not submitted"}
           color={submitted ? "success" : "default"}
@@ -452,7 +413,12 @@ export default function SortingStepView({
         )}
 
         {submitted && hasAnswerKey && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ ml: 1 }}
+          >
             <Chip label="Correct" color="success" variant="outlined" />
             <Chip label="Incorrect" color="error" variant="outlined" />
           </Stack>
@@ -487,57 +453,123 @@ export default function SortingStepView({
         </Button>
       </Stack>
 
-      {/* Layout */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "0.9fr 1.1fr" },
-          gap: 2,
-          alignItems: "start",
-        }}
+      {/* Layout with @dnd-kit */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
       >
-        {/* Bank */}
-        <Zone
-          id="bank"
-          title="Card Bank"
-          hint="Drag cards into the buckets on the right."
-          minHeight={280}
-          correctnessBorder={submitted && hasAnswerKey ? (bank.length === 0 ? "success" : "error") : "none"}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "0.9fr 1.1fr" },
+            gap: 2,
+            alignItems: "start",
+          }}
         >
-          {bank.length === 0 ? (
-            <Typography sx={{ color: "grey.500", fontStyle: "italic" }}>
-              No cards left in the bank.
-            </Typography>
-          ) : (
-            bank.map((c) => <Card key={c.id} card={c} />)
-          )}
-        </Zone>
+          {/* Bank */}
+          <DroppableZone
+            id="bank"
+            title="Card Bank"
+            hint="Drag cards into the buckets on the right."
+            minHeight={280}
+            cardCount={bank.length}
+            correctnessBorder={
+              submitted && hasAnswerKey
+                ? bank.length === 0
+                  ? "success"
+                  : "error"
+                : "none"
+            }
+          >
+            {bank.length === 0 ? (
+              <Typography sx={{ color: "grey.500", fontStyle: "italic" }}>
+                No cards left in the bank.
+              </Typography>
+            ) : (
+              bank.map((c) => {
+                const correctness = isCardCorrect(c.id);
+                return (
+                  <DraggableCard
+                    key={c.id}
+                    card={c}
+                    canInteract={canInteract}
+                    showCorrectness={
+                      submitted && hasAnswerKey && correctness !== null
+                    }
+                    correctness={correctness}
+                  />
+                );
+              })
+            )}
+          </DroppableZone>
 
-        {/* Buckets */}
-        <Box sx={{ display: "grid", gridTemplateColumns: "1fr", gap: 2 }}>
-          {step.buckets.map((bucket) => {
-            const bucketCards = byBucket[bucket.id] ?? [];
-            return (
-              <Zone
-                key={bucket.id}
-                id={bucket.id}
-                title={bucket.label}
-                hint="Drop cards here"
-                minHeight={160}
-                correctnessBorder={bucketBorderStatus(bucket.id)}
-              >
-                {bucketCards.length === 0 ? (
-                  <Typography sx={{ color: "grey.500", fontStyle: "italic" }}>
-                    Drop cards into this bucket.
-                  </Typography>
-                ) : (
-                  bucketCards.map((c) => <Card key={c.id} card={c} />)
-                )}
-              </Zone>
-            );
-          })}
+          {/* Buckets */}
+          <Box sx={{ display: "grid", gridTemplateColumns: "1fr", gap: 2 }}>
+            {step.buckets.map((bucket) => {
+              const bucketCards = byBucket[bucket.id] ?? [];
+              return (
+                <DroppableZone
+                  key={bucket.id}
+                  id={bucket.id}
+                  title={bucket.label}
+                  hint="Drop cards here"
+                  minHeight={160}
+                  cardCount={bucketCards.length}
+                  correctnessBorder={bucketBorderStatus(bucket.id)}
+                >
+                  {bucketCards.length === 0 ? (
+                    <Typography
+                      sx={{ color: "grey.500", fontStyle: "italic" }}
+                    >
+                      Drop cards into this bucket.
+                    </Typography>
+                  ) : (
+                    bucketCards.map((c) => {
+                      const correctness = isCardCorrect(c.id);
+                      return (
+                        <DraggableCard
+                          key={c.id}
+                          card={c}
+                          canInteract={canInteract}
+                          showCorrectness={
+                            submitted && hasAnswerKey && correctness !== null
+                          }
+                          correctness={correctness}
+                        />
+                      );
+                    })
+                  )}
+                </DroppableZone>
+              );
+            })}
+          </Box>
         </Box>
-      </Box>
+
+        {/* Drag overlay — floating card that follows the cursor */}
+        <DragOverlay>
+          {activeCard ? (
+            <Paper
+              elevation={4}
+              sx={{
+                px: 1.5,
+                py: 1.25,
+                borderRadius: "14px",
+                border: "2px solid",
+                borderColor: "primary.main",
+                bgcolor: "grey.50",
+                cursor: "grabbing",
+                userSelect: "none",
+              }}
+            >
+              <Typography sx={{ fontSize: "0.95rem", fontWeight: 700 }}>
+                {activeCard.text}
+              </Typography>
+            </Paper>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </Box>
   );
 }
