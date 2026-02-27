@@ -39,9 +39,6 @@ export default function PollStepView({ step, stepId, userId, moduleId }: PollSte
   const [isLoading, setIsLoading] = useState(true);
   const [showCheckIcon, setShowCheckIcon] = useState(false);
 
-  console.log("PollStepView rendered with step:", step);
-
-  // Check if user has already voted
   useEffect(() => {
     const checkUserVote = async () => {
       if (!userId) {
@@ -52,6 +49,9 @@ export default function PollStepView({ step, stepId, userId, moduleId }: PollSte
       try {
         const userVote = await getUserPollVote(moduleId, stepId, userId);
         if (userVote) {
+          const freshPollData = await getPollResults(moduleId, stepId);
+          setCurrentVotes(freshPollData.options);
+
           setHasVoted(true);
           setShowResults(true);
           setShowCheckIcon(true);
