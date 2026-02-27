@@ -302,7 +302,7 @@ export default function HomepagePage() {
                   variant="h5"
                   component="h2"
                   sx={{
-                    fontSize: "1.50rem",
+                    fontSize: "1.25rem",
                     fontWeight: 500,
                     fontFamily: "Georgia, 'Times New Roman', Times, serif",
                     color: "#2c3e50",
@@ -376,14 +376,14 @@ export default function HomepagePage() {
                   variant="h5"
                   component="h2"
                   sx={{
-                    fontSize: "1.50rem",
+                    fontSize: "1.25rem",
                     fontWeight: 500,
                     fontFamily: "Georgia, 'Times New Roman', Times, serif",
                     color: "#2c3e50",
                     letterSpacing: "0.01em",
                   }}
                 >
-                  NC High School Ethics Bowl
+                  National High School Ethics Bowl
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   The North Carolina High School Ethics Bowl, headquartered at

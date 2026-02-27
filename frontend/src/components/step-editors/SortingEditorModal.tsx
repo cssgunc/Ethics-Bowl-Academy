@@ -46,19 +46,25 @@ export default function SortingEditorModal({
 }: SortingEditorModalProps) {
   const isEdit = Boolean(step);
 
-  const [title, setTitle] = useState("Sorting Question");
-  const [prompt, setPrompt] = useState("");
-  const [isOptional, setIsOptional] = useState(false);
+  const [title, setTitle] = useState(step?.title ?? "Sorting Question");
+  const [prompt, setPrompt] = useState(step?.prompt ?? "");
+  const [isOptional, setIsOptional] = useState(step?.isOptional ?? false);
 
-  const [buckets, setBuckets] = useState<BucketDraft[]>([
-    { id: makeId("bucket"), label: "" },
-  ]);
-  const [cards, setCards] = useState<CardDraft[]>([
-    { id: makeId("card"), text: "" },
-  ]);
+  const [buckets, setBuckets] = useState<BucketDraft[]>(
+    step?.buckets?.length
+      ? step.buckets.map((b) => ({ id: b.id, label: b.label }))
+      : [{ id: makeId("bucket"), label: "" }]
+  );
+  const [cards, setCards] = useState<CardDraft[]>(
+    step?.cards?.length
+      ? step.cards.map((c) => ({ id: c.id, text: c.text }))
+      : [{ id: makeId("card"), text: "" }]
+  );
 
   // ✅ answer key (cardId -> bucketId)
-  const [answerKey, setAnswerKey] = useState<Record<string, string>>({});
+  const [answerKey, setAnswerKey] = useState<Record<string, string>>(
+    step?.answerKey ?? {}
+  );
 
   const [touched, setTouched] = useState(false);
 

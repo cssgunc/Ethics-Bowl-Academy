@@ -159,13 +159,14 @@ export default function ModuleContentMUI({
     if (!showSteps || steps.length === 0) return;
 
     const s = steps[currentStepIndex];
+    const alreadyCompleted = userProgress?.completedStepIds?.includes(s.id);
 
     if (s.type === "sorting") {
-      setNextEnabled(false); // require submit
+      setNextEnabled(alreadyCompleted ? true : false);
     } else if (s.type !== "quiz") {
-      setNextEnabled(true);  // allow next for others
+      setNextEnabled(true);
     }
-  }, [showSteps, steps, currentStepIndex]);
+  }, [showSteps, steps, currentStepIndex, userProgress]);
 
   // Keep user progress updated
   const refreshProgress = () => {
@@ -383,6 +384,7 @@ export default function ModuleContentMUI({
             )}
             {currentStep.type === "quiz" && (
               <QuizStepView
+                key={currentStep.id}
                 step={currentStep as QuizStep}
                 quizPassed={nextEnabled}
                 onPassedChange={(value) => handleQuizPassedChange(value)}
@@ -407,11 +409,15 @@ export default function ModuleContentMUI({
             {currentStep.type === "sorting" && (
               <SortingStepView
                 step={currentStep as SortingStep}
-                onSubmittedChange={(ok) => setNextEnabled(ok)}
+                onSubmittedChange={(ok) => {
+                  if (!ok && userProgress?.completedStepIds?.includes(currentStep.id)) return;
+                  setNextEnabled(ok);
+                }}
               />
             )}
             {currentStep.type === "poll" && (
               <PollStepView
+                key={currentStep.id}
                 step={currentStep as PollStep}
                 stepId={currentStep.id}
                 userId={userId}
