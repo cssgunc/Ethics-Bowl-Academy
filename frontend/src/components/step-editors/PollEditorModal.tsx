@@ -72,7 +72,7 @@ export default function PollEditorModal({ moduleId, onClose, onBack, step, onSav
         createdBy: step?.createdBy || userId,
         createdAt: step?.createdAt || new Date(),
         updatedAt: new Date(),
-        estimatedMinutes: formData.estimatedMinutes ? parseInt(formData.estimatedMinutes) : undefined,
+        ...(formData.estimatedMinutes ? { estimatedMinutes: parseInt(formData.estimatedMinutes) } : {}),
       };
 
       onSave(stepData);

@@ -129,7 +129,7 @@ export default function FlashcardsEditorModal({ moduleId, onClose, onBack, step,
         createdBy: step?.createdBy || userId,
         createdAt: step?.createdAt || new Date(),
         updatedAt: new Date(),
-        estimatedMinutes: formData.estimatedMinutes ? parseInt(formData.estimatedMinutes) : undefined,
+        ...(formData.estimatedMinutes ? { estimatedMinutes: parseInt(formData.estimatedMinutes) } : {}),
       };
 
       onSave(stepData);

@@ -64,7 +64,7 @@ export default function VideoEditorModal({ moduleId, onClose, onBack, step, onSa
         createdBy: step?.createdBy || userId,
         createdAt: step?.createdAt || new Date(),
         updatedAt: new Date(),
-        estimatedMinutes: formData.estimatedMinutes ? parseInt(formData.estimatedMinutes) : undefined,
+        ...(formData.estimatedMinutes ? { estimatedMinutes: parseInt(formData.estimatedMinutes) } : {}),
       };
 
       onSave(stepData);

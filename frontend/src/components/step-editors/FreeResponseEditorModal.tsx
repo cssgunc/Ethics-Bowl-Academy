@@ -97,9 +97,9 @@ export default function FreeResponseEditorModal({ moduleId, onClose, onBack, ste
         type: 'freeResponse',
         title: formData.title.trim(),
         prompt: formData.prompt.trim(),
-        sampleAnswer: formData.sampleAnswer.trim() || undefined,
-        maxLength: formData.maxLength ? parseInt(formData.maxLength) : undefined,
-        estimatedMinutes: formData.estimatedMinutes ? parseInt(formData.estimatedMinutes) : undefined,
+        ...(formData.sampleAnswer.trim() ? { sampleAnswer: formData.sampleAnswer.trim() } : {}),
+        ...(formData.maxLength ? { maxLength: parseInt(formData.maxLength) } : {}),
+        ...(formData.estimatedMinutes ? { estimatedMinutes: parseInt(formData.estimatedMinutes) } : {}),
         isOptional: formData.isOptional,
         order: step?.order ?? 0, // Assigned by parent
         createdBy: step?.createdBy || userId,
