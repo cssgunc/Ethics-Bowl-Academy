@@ -15,7 +15,7 @@
  */
 export interface BaseFeature {
   id: string; // Unique identifier for the feature (auto-generated UUID)
-  type: 'video' | 'flashcards' | 'quiz' | 'journal'; // Discriminated union type for feature classification
+  type: 'video' | 'flashcards' | 'quiz' | 'journal'| 'resources'; // Discriminated union type for feature classification
   title: string; // Display name for the feature in the UI
 }
 
@@ -28,6 +28,20 @@ export interface BaseFeature {
 export interface VideoFeature extends BaseFeature {
   type: 'video'; // Type discriminator - must be 'video' for this interface
   url: string; // URL to the video content (YouTube, Vimeo, etc.)
+}
+
+/**
+ * RESOURCES FEATURE INTERFACE
+ *
+ * Represents additional learning resources such as articles or PDFs.
+ * Extends BaseFeature and adds resource-specific properties.
+ */
+export interface ResourcesFeature extends BaseFeature {
+  type: 'resources'; // Type discriminator - must be 'resources' for this interface
+  resources: {
+    link: string; // URL to the resource (e.g., article, website)
+    pdf: string; // URL to the PDF version of the resource
+  };
 }
 
 /**
@@ -93,7 +107,7 @@ export interface JournalFeature extends BaseFeature {
  * while maintaining type safety. TypeScript can narrow the type based
  * on the 'type' property, enabling type-safe access to feature-specific properties.
  */
-export type Feature = VideoFeature | FlashcardsFeature | QuizFeature | JournalFeature;
+export type Feature = VideoFeature | ResourcesFeature | FlashcardsFeature | QuizFeature | JournalFeature;
 
 /**
  * MODULE INTERFACE
@@ -115,4 +129,4 @@ export interface Module {
  * This ensures consistency with the BaseFeature type property and makes
  * it easy to add new feature types in the future.
  */
-export type FeatureType = 'video' | 'flashcards' | 'quiz' | 'journal';
+export type FeatureType = 'video' | 'resources' | 'flashcards' | 'quiz' | 'journal';

@@ -1,6 +1,5 @@
 import { Timestamp } from "firebase/firestore";
 
-
 // User
 
 export interface User {
@@ -77,7 +76,14 @@ export interface StepBase {
   updatedAt: Timestamp | Date;
 }
 
-export type StepType = "video" | "quiz" | "flashcards" | "freeResponse" | "sorting" | "poll";
+export type StepType =
+  | "video"
+  | "quiz"
+  | "flashcards"
+  | "freeResponse"
+  | "sorting"
+  | "poll"
+  | "additionalResources";
 
 // Subcollection name mapping
 export const STEP_COLLECTIONS = {
@@ -87,9 +93,10 @@ export const STEP_COLLECTIONS = {
   freeResponse: "freeResponses",
   sorting: "sorting",
   poll: "polls",
+  additionalResources: "additionalResources",
 } as const;
 
-export type StepCollectionName = typeof STEP_COLLECTIONS[StepType];
+export type StepCollectionName = (typeof STEP_COLLECTIONS)[StepType];
 
 // Specific Step Interfaces
 
@@ -98,6 +105,21 @@ export interface VideoStep extends StepBase {
   youtubeUrl: string;
   thumbnailUrl?: string;
   durationSec?: number;
+}
+
+export interface AdditionalResourcesStep extends StepBase {
+  type: "additionalResources";
+  resources: {
+    link: string;
+    pdf: string;
+    all?: Array<{
+      // ⭐ ADD THIS OPTIONAL FIELD
+      id: string;
+      name: string;
+      url: string;
+      type: "link" | "pdf";
+    }>;
+  };
 }
 
 export interface QuizStep extends StepBase {
@@ -146,7 +168,14 @@ export interface PollStep extends StepBase {
 }
 
 // Step type used throughout the app
-export type Step = VideoStep | QuizStep | FlashcardsStep | FreeResponseStep | SortingStep | PollStep;
+export type Step =
+  | VideoStep
+  | QuizStep
+  | FlashcardsStep
+  | FreeResponseStep
+  | SortingStep
+  | PollStep
+  | AdditionalResourcesStep;
 
 // Journal
 export interface JournalEntry {
@@ -155,6 +184,6 @@ export interface JournalEntry {
   body: string | Record<string, [string, string]>;
   createdAt: Date | Timestamp;
   updatedAt: Date | Timestamp;
-  moduleId?: string; 
-  stepId?: string; 
+  moduleId?: string; // optional - for future module association
+  stepId?: string; // optional - for future step association
 }

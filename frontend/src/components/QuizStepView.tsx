@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { QuizStep } from "@/lib/firebase/types";
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import StepContent from "@/components/StepContent";
 
 
 interface QuizStepViewProps {
@@ -116,9 +117,9 @@ export default function QuizStepView({ step, quizPassed, onPassedChange }: QuizS
           >
             <FormControl component="fieldset" fullWidth>
               <FormLabel id={`q-${qi}-label`}>
-                <Typography sx={{ fontWeight: 600 }}>{`${qi + 1}. ${
-                  q.prompt
-                }`}</Typography>
+                <Typography component="div" sx={{ fontWeight: 600 }}>
+                  {qi + 1}.{' '}<StepContent content={q.prompt} inline />
+                </Typography>
               </FormLabel>
 
               <RadioGroup

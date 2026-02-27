@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export default function ModuleJournalPage({
   params
 }: {
-  params: { moduleId: string }
+  params: Promise<{ moduleId: string }>
 }) {
   const router = useRouter();
 

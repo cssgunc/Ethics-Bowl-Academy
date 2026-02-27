@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
@@ -15,6 +16,7 @@ const firebaseConfig = {
 // Will fail gracefully if env vars are missing - components should handle this
 let app: ReturnType<typeof getApp> | null = null;
 let db: ReturnType<typeof getFirestore> | null = null;
+let storage: ReturnType<typeof getStorage> | null = null;
 let auth: ReturnType<typeof getAuth> | null = null;
 let googleAuthProvider: GoogleAuthProvider | null = null;
 
@@ -23,6 +25,7 @@ try {
   if (firebaseConfig.apiKey) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     db = getFirestore(app);
+    storage = getStorage(app);
     auth = getAuth(app);
     googleAuthProvider = new GoogleAuthProvider();
   } else {
@@ -42,4 +45,4 @@ try {
   googleAuthProvider = null;
 }
 
-export { app, db, auth, googleAuthProvider };
+export { app, db, auth, googleAuthProvider, storage };

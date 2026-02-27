@@ -7,6 +7,7 @@ import { FreeResponseStep } from "@/lib/firebase/types";
 export const mockFreeResponseSteps: FreeResponseStep[] = [
   {
     id: "step-1",
+    moduleId: "mock-module",
     type: "freeResponse",
     title: "Post-Reflection Journal Entry",
     order: 1,

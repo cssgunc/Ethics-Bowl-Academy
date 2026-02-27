@@ -61,6 +61,7 @@ export default function PollEditorModal({ moduleId, onClose, onBack, step, onSav
     try {
       const stepData: PollStep = {
         id: step?.id || uuidv4(),
+        moduleId,
         type: 'poll',
         title: formData.title.trim(),
         question: formData.question.trim(),

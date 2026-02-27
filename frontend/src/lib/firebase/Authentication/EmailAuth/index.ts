@@ -1,7 +1,6 @@
 import {
   createUserWithEmailAndPassword,
   reauthenticateWithCredential,
-  sendEmailVerification,
   signInWithEmailAndPassword,
   updatePassword,
 } from "firebase/auth";
@@ -44,11 +43,7 @@ export const registerUser = async (
       });
       await updateProfile(user, { displayName: name, photoURL: diceBear });  // update display name and pfp in firebase auth
     }
-    //Send verifcation email to the user
-    await sendEmailVerification(user);
-    toast.success(
-      `A verifcation email has been sent to your email address: ${email}`
-    );
+    toast.success("Account created successfully!");
   } catch (error) {
     if (error instanceof FirebaseError) {
       generateFirebaseAuthErrorMessage(error);
@@ -76,10 +71,6 @@ export const loginUserWithEmailAndPassword = async (
       password
     );
     const user = userCredential.user;
-    if (user.emailVerified === false) {
-      toast.error("Please verify your email to login");
-      return;
-    }
   } catch (error) {
     if (error instanceof FirebaseError) {
       generateFirebaseAuthErrorMessage(error);

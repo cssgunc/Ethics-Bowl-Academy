@@ -200,10 +200,10 @@ export default function ProfilePage() {
         </Box>
 
         {/* FOOTER BUTTONS */}
-        <div className="text-center mt-10">
+        <div className="text-center mt-10 flex flex-col md:flex-row items-center justify-center gap-3">
           <button
             onClick={() => router.push("/")}
-            className="bg-carolina-blue hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200 mr-4"
+            className="bg-carolina-blue hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors duration-200"
           >
             ← Back to Home
           </button>

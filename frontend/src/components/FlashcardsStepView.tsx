@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, Button, Paper, useTheme } from "@mui/material";
 import { FlashcardsStep } from "@/lib/firebase/types";
+import StepContent from "@/components/StepContent";
 
 interface FlashcardStepProps {
   step: FlashcardsStep;
@@ -179,6 +180,7 @@ export default function FlashcardsStepView({ step }: FlashcardStepProps) {
                   }}
                 >
                   <Typography
+                    component="div"
                     sx={{
                       fontSize: "2rem",
                       color: theme.palette.common.black,
@@ -187,7 +189,7 @@ export default function FlashcardsStepView({ step }: FlashcardStepProps) {
                       whiteSpace: "pre-wrap",
                     }}
                   >
-                    {currentFlashcard?.front || ""}
+                    <StepContent content={currentFlashcard?.front || ""} />
                   </Typography>
                 </Box>
                 {/* Back face */}
@@ -211,6 +213,7 @@ export default function FlashcardsStepView({ step }: FlashcardStepProps) {
                   }}
                 >
                   <Typography
+                    component="div"
                     sx={{
                       fontSize: "2rem",
                       color: theme.palette.common.black,
@@ -219,7 +222,7 @@ export default function FlashcardsStepView({ step }: FlashcardStepProps) {
                       whiteSpace: "pre-wrap",
                     }}
                   >
-                    {currentFlashcard?.back || ""}
+                    <StepContent content={currentFlashcard?.back || ""} />
                   </Typography>
                 </Box>
               </Box>

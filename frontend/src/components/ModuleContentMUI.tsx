@@ -8,16 +8,28 @@ import {
   completeModule,
   markStepCompleted,
   updateQuizScore,
-  getJournalEntryByStepId
+  getJournalEntryByStepId,
 } from "@/lib/firebase/db-operations";
-import { Module, Step, VideoStep, QuizStep, FlashcardsStep, FreeResponseStep, SortingStep, PollStep, UserProgress } from "@/lib/firebase/types";
+import {
+  Module,
+  Step,
+  VideoStep,
+  QuizStep,
+  FlashcardsStep,
+  FreeResponseStep,
+  SortingStep,
+  PollStep,
+  AdditionalResourcesStep,
+  UserProgress,
+} from "@/lib/firebase/types";
 import FreeResponseStepView from "./FreeResponseStepView";
 import VideoStepView from "./VideoStepView";
 import FlashcardsStepView from "./FlashcardsStepView";
 import QuizStepView from "./QuizStepView";
 import SortingStepView from "./SortingStepView";
 import PollStepView from "./PollStepView";
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import AdditionalResourcesStepView from "./AdditionalResourcesStepView";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import confetti from "canvas-confetti";
 
 interface ModuleContentProps {
@@ -56,7 +68,7 @@ export default function ModuleContentMUI({
 
   const handleNavigateToStep = async (stepIndex: number) => {
     if (!userId || !moduleId) return;
-    
+
     // Check if step is navigable (completed or next)
     const completedCount = userProgress?.completedStepIds.length || 0;
     if (stepIndex > completedCount) return;
@@ -76,15 +88,15 @@ export default function ModuleContentMUI({
 
     // Reset only view state when module changes
     // Keep all data (content, steps, userProgress) to avoid any flashing
-    setNextEnabled(true);   // Reset next button
-    setShowSteps(false);     // Exit step view
-    setCurrentStepIndex(0);  // Reset step navigation
+    setNextEnabled(true); // Reset next button
+    setShowSteps(false); // Exit step view
+    setCurrentStepIndex(0); // Reset step navigation
 
     const fetchContent = async () => {
       // Always fetch module content and steps
       const [content, moduleSteps] = await Promise.all([
         getModuleById(moduleId),
-        getStepsByModuleId(moduleId)
+        getStepsByModuleId(moduleId),
       ]);
 
       // Only fetch user progress if userId is available
@@ -106,30 +118,32 @@ export default function ModuleContentMUI({
 
   useEffect(() => {
     if (!showSteps || steps.length === 0 || !userId) return;
-  
+
     const currentStep = steps[currentStepIndex];
     if (currentStep.type !== "freeResponse") return;
-  
+
     const stepId = currentStep.id;
-  
+
     // Already have a value for this step? Don't refetch from Firestore.
     if (freeResponsesByStepId[stepId] !== undefined) return;
-  
+
     const fetchFreeResponse = async () => {
       try {
         const journalEntry = await getJournalEntryByStepId(userId, stepId);
         if (!journalEntry) return;
-  
+
         // body is a map: { [stepId]: [prompt, answer] }
-        const body = journalEntry.body as unknown as Record<string, [string, string]> | undefined;
+        const body = journalEntry.body as unknown as
+          | Record<string, [string, string]>
+          | undefined;
         if (!body) return;
-  
+
         const entryForStep = body[stepId];
         if (!entryForStep) return;
-  
+
         const [, answer] = entryForStep;
-  
-        setFreeResponsesByStepId(prev => ({
+
+        setFreeResponsesByStepId((prev) => ({
           ...prev,
           [stepId]: answer,
         }));
@@ -137,10 +151,10 @@ export default function ModuleContentMUI({
         console.error("Failed to sync free response from journal:", err);
       }
     };
-  
+
     fetchFreeResponse();
   }, [showSteps, steps, currentStepIndex, userId, freeResponsesByStepId]);
-  
+
   useEffect(() => {
     if (!showSteps || steps.length === 0) return;
 
@@ -173,9 +187,10 @@ export default function ModuleContentMUI({
       setNextEnabled(true);
       updateQuizScore(userId, moduleId, steps[currentStepIndex].id, score);
     } else {
-      !(userProgress?.quizScores[steps[currentStepIndex].id]) && setNextEnabled(false);
+      !userProgress?.quizScores[steps[currentStepIndex].id] &&
+        setNextEnabled(false);
     }
-  }
+  };
 
   // Step View with Navigation
   if (showSteps && steps.length > 0) {
@@ -204,7 +219,7 @@ export default function ModuleContentMUI({
           particleCount: 300,
           spread: 120,
           startVelocity: 40,
-          origin: { y: 0.6 }
+          origin: { y: 0.6 },
         });
         setShowSteps(false);
       }
@@ -225,11 +240,11 @@ export default function ModuleContentMUI({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            p: 2,
+            p: { xs: 1.5, md: 2 },
             bgcolor: "white",
-            borderTopRightRadius: "16px",
+            borderTopRightRadius: { xs: 0, md: "16px" },
             border: `1px solid ${theme.palette.grey[300]}`,
-            borderLeft: "none",
+            borderLeft: { xs: "none", md: "none" },
           }}
         >
           {currentStepIndex === 0 ? (
@@ -250,31 +265,66 @@ export default function ModuleContentMUI({
               Back
             </Button>
           ) : (
-          <Button
-            variant="outlined"
-            onClick={handlePrevious}
-            sx={{
-              borderRadius: "16px",
-              px: 3,
-              py: 1,
-              transition: "all 0.3s ease",
-              "&:hover": {
-                transform: "translateY(-2px)",
-                boxShadow: "0 4px 8px rgba(0, 0, 0, 0.15)",
-              },
-            }}
-          >
-            Previous
-          </Button>
+            <Button
+              variant="outlined"
+              onClick={handlePrevious}
+              sx={{
+                borderRadius: "16px",
+                px: 3,
+                py: 1,
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  transform: "translateY(-2px)",
+                  boxShadow: "0 4px 8px rgba(0, 0, 0, 0.15)",
+                },
+              }}
+            >
+              Previous
+            </Button>
           )}
 
           <Typography sx={{ fontWeight: "bold" }}>
             Step {currentStepIndex + 1} of {steps.length}
           </Typography>
-          {currentStepIndex === steps.length - 1 ? nextEnabled ? (
+          {currentStepIndex === steps.length - 1 ? (
+            nextEnabled ? (
+              <Button
+                variant="contained"
+                onClick={handleNext}
+                sx={{
+                  borderRadius: "16px",
+                  px: 3,
+                  py: 1,
+                  bgcolor: (t) => t.palette.common.black,
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    bgcolor: (t) => t.palette.grey[800],
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)",
+                  },
+                }}
+              >
+                Finish
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                disabled={true}
+                sx={{
+                  borderRadius: "16px",
+                  px: 3,
+                  py: 1,
+                  bgcolor: (t) => t.palette.common.black,
+                }}
+              >
+                Finish
+              </Button>
+            )
+          ) : nextEnabled ? (
             <Button
               variant="contained"
               onClick={handleNext}
+              disabled={currentStepIndex === steps.length - 1}
               sx={{
                 borderRadius: "16px",
                 px: 3,
@@ -288,10 +338,9 @@ export default function ModuleContentMUI({
                 },
               }}
             >
-              Finish
+              Next
             </Button>
-          ) : 
-          (
+          ) : (
             <Button
               variant="contained"
               disabled={true}
@@ -302,41 +351,8 @@ export default function ModuleContentMUI({
                 bgcolor: (t) => t.palette.common.black,
               }}
             >
-              Finish
+              Next
             </Button>
-          ) : nextEnabled ? (
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            disabled={currentStepIndex === steps.length - 1}
-            sx={{
-              borderRadius: "16px",
-              px: 3,
-              py: 1,
-              bgcolor: (t) => t.palette.common.black,
-              transition: "all 0.3s ease",
-              "&:hover": {
-                bgcolor: (t) => t.palette.grey[800],
-                transform: "translateY(-2px)",
-                boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)",
-              },
-            }}
-          >
-            Next
-          </Button>
-          ) : (
-            <Button
-            variant="contained"
-            disabled={true}
-            sx={{
-              borderRadius: "16px",
-              px: 3,
-              py: 1,
-              bgcolor: (t) => t.palette.common.black,
-            }}
-          >
-            Next
-          </Button>
           )}
         </Box>
 
@@ -363,12 +379,14 @@ export default function ModuleContentMUI({
             }}
           >
             {currentStep.type === "video" && (
-              <VideoStepView step={currentStep as VideoStep}/>
+              <VideoStepView step={currentStep as VideoStep} />
             )}
             {currentStep.type === "quiz" && (
-              <QuizStepView step={currentStep as QuizStep} quizPassed={nextEnabled} onPassedChange={(value) => 
-                handleQuizPassedChange(value)
-              }/>
+              <QuizStepView
+                step={currentStep as QuizStep}
+                quizPassed={nextEnabled}
+                onPassedChange={(value) => handleQuizPassedChange(value)}
+              />
             )}
             {currentStep.type === "flashcards" && (
               <FlashcardsStepView step={currentStep as FlashcardsStep} />
@@ -400,6 +418,11 @@ export default function ModuleContentMUI({
                 moduleId={moduleId}
               />
             )}
+            {currentStep.type === "additionalResources" && (
+              <AdditionalResourcesStepView
+                step={currentStep as AdditionalResourcesStep}
+              />
+            )}
           </Box>
         </Box>
       </Box>
@@ -412,17 +435,16 @@ export default function ModuleContentMUI({
       sx={{
         display: "flex",
         flexDirection: "column",
-        px: "4vw",
-        pt: "2vw",
-        pb: "4vw",
+        px: { xs: 2, md: "4vw" },
+        pt: { xs: 2, md: "2vw" },
       }}
     >
       {/* Decorative Header Section */}
       <Box
         sx={{
           position: "relative",
-          mb: 4,
-          pb: 3,
+          mb: { xs: 2, md: 2 },
+          pb: { xs: 0, md: 1 },
         }}
       >
         {/* Decorative background shape - more visible */}
@@ -433,7 +455,8 @@ export default function ModuleContentMUI({
             left: -40,
             width: "200px",
             height: "200px",
-            background: "linear-gradient(135deg, rgba(171, 216, 255, 0.5) 0%, rgba(171, 216, 255, 0.25) 100%)",
+            background:
+              "linear-gradient(135deg, rgba(171, 216, 255, 0.5) 0%, rgba(171, 216, 255, 0.25) 100%)",
             borderRadius: "50%",
             filter: "blur(40px)",
             zIndex: 0,
@@ -446,24 +469,26 @@ export default function ModuleContentMUI({
             right: -20,
             width: "150px",
             height: "150px",
-            background: "linear-gradient(135deg, rgba(171, 216, 255, 0.4) 0%, rgba(171, 216, 255, 0.15) 100%)",
+            background:
+              "linear-gradient(135deg, rgba(171, 216, 255, 0.4) 0%, rgba(171, 216, 255, 0.15) 100%)",
             borderRadius: "50%",
             filter: "blur(30px)",
             zIndex: 0,
           }}
         />
-        
+
         <Box sx={{ position: "relative", zIndex: 1 }}>
           <Typography
             variant="h3"
             component="h1"
             sx={{
-              fontSize: "3rem",
-              fontWeight: "bold",
-              fontFamily: "var(--font-secondary)",
-              color: (t) => t.palette.error.main,
+              fontSize: { xs: "1.5rem", md: "2.5rem" },
+              fontWeight: 300,
+              fontFamily: "Georgia, 'Times New Roman', Times, serif",
+              color: "#2c3e50",
               mb: 0.5,
-              textShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              letterSpacing: "0.02em",
+              lineHeight: 1.2,
             }}
           >
             Welcome to Module {index + 1}
@@ -473,25 +498,28 @@ export default function ModuleContentMUI({
             variant="h3"
             component="h2"
             sx={{
-              fontSize: "3rem",
-              fontWeight: "bold",
-              fontFamily: "var(--font-secondary)",
-              color: (t) => t.palette.error.main,
-              mb: 2,
-              textShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
+              fontSize: { xs: "2.5rem", md: "3.5rem" },
+              fontWeight: 400,
+              fontFamily: "Georgia, 'Times New Roman', Times, serif",
+              color: "#2c3e50",
+              mb: { xs: 0.5, md: 1 },
+              letterSpacing: "-0.01em",
+              lineHeight: 1.1,
+              fontStyle: "italic",
             }}
           >
             {content?.title}
           </Typography>
-          
+
           {/* Decorative divider line */}
           <Box
             sx={{
               width: "80px",
               height: "4px",
-              background: "linear-gradient(90deg, rgba(171, 216, 255, 0.8) 0%, rgba(171, 216, 255, 0.2) 100%)",
+              background:
+                "linear-gradient(90deg, rgba(171, 216, 255, 0.8) 0%, rgba(171, 216, 255, 0.2) 100%)",
               borderRadius: "2px",
-              mt: 2,
+              mt: { xs: 1, md: 2 },
             }}
           />
         </Box>
@@ -500,11 +528,13 @@ export default function ModuleContentMUI({
       {/* Card-based layout with shadows and gradient overlay */}
       <Box
         sx={{
-          background: "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%)",
+          background:
+            "linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%)",
           borderRadius: "24px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05)",
-          p: 4,
-          mb: 4,
+          boxShadow:
+            "0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05)",
+          p: { xs: 2.5, md: 4 },
+          mb: { xs: 2, md: 4 },
           position: "relative",
           overflow: "hidden",
           "&::before": {
@@ -514,7 +544,8 @@ export default function ModuleContentMUI({
             left: 0,
             right: 0,
             height: "4px",
-            background: "linear-gradient(90deg, rgba(171, 216, 255, 0.6) 0%, rgba(171, 216, 255, 0.2) 50%, rgba(171, 216, 255, 0.6) 100%)",
+            background:
+              "linear-gradient(90deg, rgba(171, 216, 255, 0.6) 0%, rgba(171, 216, 255, 0.2) 50%, rgba(171, 216, 255, 0.6) 100%)",
           },
         }}
       >
@@ -571,7 +602,8 @@ export default function ModuleContentMUI({
                   left: 0,
                   width: "40px",
                   height: "2px",
-                  background: "linear-gradient(90deg, rgba(171, 216, 255, 0.8) 0%, transparent 100%)",
+                  background:
+                    "linear-gradient(90deg, rgba(171, 216, 255, 0.8) 0%, transparent 100%)",
                   borderRadius: "1px",
                 },
               }}
@@ -580,68 +612,78 @@ export default function ModuleContentMUI({
             </Typography>
           </Box>
           <Box className="flex flex-row gap-5 mt-5 flex-wrap">
-            {Array.from({ length: steps.length }, (_, i) => i + 1).map((step, idx) => {
-              const isCompleted = userProgress && step <= userProgress.completedStepIds.length;
-              const isNext = userProgress ? step === userProgress.completedStepIds.length + 1 : step === 1;
-              const navigable = isCompleted || isNext;
+            {Array.from({ length: steps.length }, (_, i) => i + 1).map(
+              (step, idx) => {
+                const isCompleted =
+                  userProgress && step <= userProgress.completedStepIds.length;
+                const isNext = userProgress
+                  ? step === userProgress.completedStepIds.length + 1
+                  : step === 1;
+                const navigable = isCompleted || isNext;
 
-              return (
-                <Box 
-                  key={step}
-                  onClick={() => navigable && handleNavigateToStep(idx)}
+                return (
+                  <Box
+                    key={step}
+                    onClick={() => navigable && handleNavigateToStep(idx)}
+                    sx={{
+                      transition: "all 0.3s ease",
+                      cursor: navigable ? "pointer" : "default",
+                      "&:hover": navigable
+                        ? {
+                            transform: "translateY(-4px) scale(1.05)",
+                          }
+                        : {},
+                    }}
+                  >
+                    {isCompleted ? (
+                      <div
+                        className="w-[36px] h-[36px] md:w-[50px] md:h-[50px] rounded-full border border-gray-300 flex items-center justify-center font-bold text-white min-w-[32px] p-0 bg-green-600 transition-all duration-300 shadow-md hover:shadow-lg text-sm md:text-base"
+                        style={{
+                          transition: "all 0.3s ease",
+                        }}
+                      >
+                        {step}
+                      </div>
+                    ) : (
+                      <div
+                        className={`w-[36px] h-[36px] md:w-[50px] md:h-[50px] rounded-full border border-gray-300 flex items-center justify-center font-bold min-w-[32px] p-0 transition-all duration-300 text-sm md:text-base ${
+                          navigable
+                            ? "text-gray-800 bg-gray-100 hover:border-blue-300 hover:bg-blue-50"
+                            : "text-gray-400 bg-gray-50 opacity-60"
+                        }`}
+                        style={{
+                          transition: "all 0.3s ease",
+                        }}
+                      >
+                        {step}
+                      </div>
+                    )}
+                  </Box>
+                );
+              },
+            )}
+            {steps.length > 0 &&
+              userProgress?.completedStepIds.length === steps.length && (
+                <Box
                   sx={{
+                    display: "flex",
+                    alignItems: "center",
                     transition: "all 0.3s ease",
-                    cursor: navigable ? "pointer" : "default",
-                    "&:hover": navigable ? {
-                      transform: "translateY(-4px) scale(1.05)",
-                    } : {},
+                    "&:hover": {
+                      transform: "scale(1.1)",
+                    },
                   }}
                 >
-                  {isCompleted ? (
-                    <div 
-                      className="w-[50px] h-[50px] rounded-full border border-gray-300 flex items-center justify-center font-bold text-white min-w-[32px] p-0 bg-green-600 transition-all duration-300 shadow-md hover:shadow-lg"
-                      style={{
-                        transition: "all 0.3s ease",
-                      }}
-                    >
-                      {step}
-                    </div>
-                  ) : (
-                    <div 
-                      className={`w-[50px] h-[50px] rounded-full border border-gray-300 flex items-center justify-center font-bold min-w-[32px] p-0 transition-all duration-300 ${
-                        navigable ? "text-gray-800 bg-gray-100 hover:border-blue-300 hover:bg-blue-50" : "text-gray-400 bg-gray-50 opacity-60"
-                      }`}
-                      style={{
-                        transition: "all 0.3s ease",
-                      }}
-                    >
-                      {step}
-                    </div>
-                  )}
+                  <CheckCircleIcon
+                    sx={{
+                      color: (t) => t.palette.success.main,
+                      fontSize: "2rem",
+                      alignSelf: "center",
+                      filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))",
+                    }}
+                  />
                 </Box>
-              );
-            })}
-            {steps.length > 0 && userProgress?.completedStepIds.length === steps.length && (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    transform: "scale(1.1)",
-                  },
-                }}
-              >
-                <CheckCircleIcon 
-                  sx={{
-                    color: (t) => t.palette.success.main,
-                    fontSize: '2rem',
-                    alignSelf: 'center',
-                    filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))",
-                  }}
-                />
-              </Box>
-            )}
+              )}
           </Box>
         </Box>
 
@@ -655,15 +697,18 @@ export default function ModuleContentMUI({
               left: 0,
               width: "100%",
               height: "1px",
-              background: "linear-gradient(90deg, transparent 0%, rgba(171, 216, 255, 0.3) 50%, transparent 100%)",
+              background:
+                "linear-gradient(90deg, transparent 0%, rgba(171, 216, 255, 0.3) 50%, transparent 100%)",
             },
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2, mt: 3 }}>
+          <Box
+            sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2, mt: 3 }}
+          >
             <Typography
               sx={{
                 fontWeight: 600,
-                fontSize: '1.125rem',
+                fontSize: "1.125rem",
                 position: "relative",
                 "&::after": {
                   content: '""',
@@ -672,7 +717,8 @@ export default function ModuleContentMUI({
                   left: 0,
                   width: "40px",
                   height: "2px",
-                  background: "linear-gradient(90deg, rgba(171, 216, 255, 0.8) 0%, transparent 100%)",
+                  background:
+                    "linear-gradient(90deg, rgba(171, 216, 255, 0.8) 0%, transparent 100%)",
                   borderRadius: "1px",
                 },
               }}
@@ -683,7 +729,7 @@ export default function ModuleContentMUI({
           <Typography
             sx={{
               color: (t) => t.palette.common.black,
-              lineHeight: '1.6',
+              lineHeight: "1.6",
               fontSize: "1rem",
             }}
           >

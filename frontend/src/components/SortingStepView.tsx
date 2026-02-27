@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Typography, Paper, Stack, Button, Chip, Divider } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Paper,
+  Stack,
+  Button,
+  Chip,
+  Divider,
+} from "@mui/material";
 import {
   DndContext,
   PointerSensor,
@@ -57,7 +65,7 @@ function groupCards(step: SortingStep, placements: Placements) {
 function cleanAnswerKey(
   answerKey: Record<string, string>,
   cards: { id: string }[],
-  buckets: { id: string }[]
+  buckets: { id: string }[],
 ) {
   const cardIds = new Set(cards.map((c) => c.id));
   const bucketIds = new Set(buckets.map((b) => b.id));
@@ -96,19 +104,19 @@ function DroppableZone({
     correctnessBorder === "success"
       ? "success.main"
       : correctnessBorder === "error"
-      ? "error.main"
-      : isOver
-      ? "primary.main"
-      : "grey.300";
+        ? "error.main"
+        : isOver
+          ? "primary.main"
+          : "grey.300";
 
   const bg =
     correctnessBorder === "success"
       ? "rgba(46, 125, 50, 0.06)"
       : correctnessBorder === "error"
-      ? "rgba(211, 47, 47, 0.06)"
-      : isOver
-      ? "primary.50"
-      : "transparent";
+        ? "rgba(211, 47, 47, 0.06)"
+        : isOver
+          ? "primary.50"
+          : "transparent";
 
   return (
     <Paper
@@ -225,7 +233,7 @@ export default function SortingStepView({
   lockAfterSubmit = false,
 }: SortingStepViewProps) {
   const [placements, setPlacements] = useState<Placements>(() =>
-    buildInitialPlacements(step)
+    buildInitialPlacements(step),
   );
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -235,7 +243,7 @@ export default function SortingStepView({
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
     }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor),
   );
 
   // Reset when step changes
@@ -253,12 +261,12 @@ export default function SortingStepView({
 
   const { bank, byBucket } = useMemo(
     () => groupCards(step, placements),
-    [step, placements]
+    [step, placements],
   );
 
   const containerIds: ContainerId[] = useMemo(
     () => ["bank", ...step.buckets.map((b) => b.id)],
-    [step.buckets]
+    [step.buckets],
   );
 
   const canInteract = !(lockAfterSubmit && submitted);
@@ -281,8 +289,12 @@ export default function SortingStepView({
   // Correctness helpers (only after submit + if answerKey exists)
   const cleanedAnswerKey = useMemo(
     () =>
-      cleanAnswerKey(step.answerKey ?? {}, step.cards ?? [], step.buckets ?? []),
-    [step.answerKey, step.cards, step.buckets]
+      cleanAnswerKey(
+        step.answerKey ?? {},
+        step.cards ?? [],
+        step.buckets ?? [],
+      ),
+    [step.answerKey, step.cards, step.buckets],
   );
 
   const hasAnswerKey = Object.keys(cleanedAnswerKey).length > 0;
@@ -350,7 +362,7 @@ export default function SortingStepView({
 
   // Bucket correctness borders after submit
   const bucketBorderStatus = (
-    bucketId: string
+    bucketId: string,
   ): "success" | "error" | "none" => {
     if (!submitted || !hasAnswerKey) return "none";
 
@@ -413,12 +425,7 @@ export default function SortingStepView({
         )}
 
         {submitted && hasAnswerKey && (
-          <Stack
-            direction="row"
-            spacing={1}
-            alignItems="center"
-            sx={{ ml: 1 }}
-          >
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
             <Chip label="Correct" color="success" variant="outlined" />
             <Chip label="Incorrect" color="error" variant="outlined" />
           </Stack>
@@ -520,9 +527,7 @@ export default function SortingStepView({
                   correctnessBorder={bucketBorderStatus(bucket.id)}
                 >
                   {bucketCards.length === 0 ? (
-                    <Typography
-                      sx={{ color: "grey.500", fontStyle: "italic" }}
-                    >
+                    <Typography sx={{ color: "grey.500", fontStyle: "italic" }}>
                       Drop cards into this bucket.
                     </Typography>
                   ) : (

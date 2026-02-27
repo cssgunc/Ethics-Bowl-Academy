@@ -7,7 +7,15 @@ import SortingStepView from "@/components/SortingStepView";
 // If you already moved SortingStep into "@/lib/firebase/types", import it from there instead.
 const demoStep = {
   id: "demo-sorting-step",
+  moduleId: "demo-module",
   type: "sorting" as const,
+  title: "Ethics Sorting Demo",
+  order: 1,
+  estimatedMinutes: 5,
+  isOptional: false,
+  createdBy: "demo",
+  createdAt: new Date(),
+  updatedAt: new Date(),
   prompt: "Drag each card into the bucket where it best fits.",
   buckets: [
     { id: "b1", label: "Utilitarian" },

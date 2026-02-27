@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Step, StepType } from "@/lib/firebase/types";
 import VideoEditorModal from "./step-editors/VideoEditorModal";
+import AdditionalResourcesEditorModal from "./step-editors/AdditionalResourcesEditorModal";
 import FlashcardsEditorModal from "./step-editors/FlashcardsEditorModal";
 import QuizEditorModal from "./step-editors/QuizEditorModal";
 import FreeResponseEditorModal from "./step-editors/FreeResponseEditorModal";
@@ -141,6 +142,26 @@ const stepTypes: {
         </svg>
       ),
     },
+    {
+      type: "additionalResources",
+      name: "Additional Resources",
+      description: "Add links and PDFs for extra learning materials",
+      icon: (
+        <svg
+          className="w-8 h-8 text-indigo-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
+        </svg>
+      ),
+    },
   ];
 
 export default function AddStepModal({
@@ -200,6 +221,15 @@ export default function AddStepModal({
       case "sorting":
         return (
           <SortingEditorModal
+            moduleId={moduleId}
+            onClose={onClose}
+            onBack={() => setSelectedType(null)}
+            onSave={onSave}
+          />
+        );
+      case "additionalResources":
+        return (
+          <AdditionalResourcesEditorModal
             moduleId={moduleId}
             onClose={onClose}
             onBack={() => setSelectedType(null)}

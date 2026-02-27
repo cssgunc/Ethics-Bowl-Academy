@@ -55,6 +55,7 @@ export default function VideoEditorModal({ moduleId, onClose, onBack, step, onSa
     try {
       const stepData: VideoStep = {
         id: step?.id || uuidv4(),
+        moduleId,
         type: 'video',
         title: formData.title.trim(),
         youtubeUrl: formData.youtubeUrl.trim(),
