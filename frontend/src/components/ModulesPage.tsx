@@ -28,8 +28,9 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { Download, GripVertical } from 'lucide-react';
 import ModuleEditor from './ModuleEditor';
+import ExportModulesModal from './ExportModulesModal';
 
 // Sortable Module Card Component
 function SortableModuleCard({ module, userId, onEdit, onDelete }: {
@@ -132,6 +133,7 @@ export default function ModulesPage() {
 
   // ===== LOCAL STATE =====
   const [showModuleEditor, setShowModuleEditor] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
 
   // ===== DND SENSORS =====
@@ -248,8 +250,8 @@ export default function ModulesPage() {
           </div>
         )}
 
-        {/* Create Module Button */}
-        <div className="mb-6">
+        {/* Module actions */}
+        <div className="mb-6 flex flex-wrap gap-3">
           <button
             onClick={handleCreateModule}
             disabled={isLoading}
@@ -259,6 +261,13 @@ export default function ModulesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Create New Module
+          </button>
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+          >
+            <Download size={20} aria-hidden="true" />
+            Export Modules
           </button>
         </div>
 
@@ -310,6 +319,7 @@ export default function ModulesPage() {
           </DndContext>
         )}
 
+        {showExportModal && <ExportModulesModal onClose={() => setShowExportModal(false)} />}
         {/* Module Editor Modal */}
         {showModuleEditor && (
           <ModuleEditor

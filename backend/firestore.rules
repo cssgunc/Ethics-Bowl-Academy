@@ -278,7 +278,7 @@ service cloud.firestore {
 
     // MODULES
     match /modules/{moduleId} {
-      allow read: if (resource.data.isPublic != null && resource.data.isPublic == true) || isOwner() || isCollaborator();
+      allow read: if (resource.data.isPublic != null && resource.data.isPublic == true) || isOwner() || isCollaborator() || isAdmin();
       allow create: if isSignedIn() && validateModule() && request.resource.data.createdBy == request.auth.uid;
       allow update: if (isOwner() || isCollaborator() || isAdmin()) && validateModuleUpdate();
       allow delete: if isOwner() || isCollaborator() || isAdmin();
