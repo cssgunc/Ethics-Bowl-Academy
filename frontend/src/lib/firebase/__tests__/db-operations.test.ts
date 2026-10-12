@@ -42,6 +42,7 @@ describe("Module CRUD Operations", () => {
     (doc as jest.Mock).mockReturnValue({ type: "DocumentReference" });
     (query as jest.Mock).mockReturnValue({ type: "Query" });
     (orderBy as jest.Mock).mockReturnValue({ type: "OrderBy" });
+    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
   });
   describe("createModule", () => {
     it("should create a module with correct data", async () => {
@@ -149,8 +150,8 @@ describe("Module CRUD Operations", () => {
 
       await deleteModule("module123", true);
 
-      // Should query all 4 subcollections
-      expect(getDocs).toHaveBeenCalledTimes(4);
+      // The four populated fixtures plus the sorting and poll collections.
+      expect(getDocs).toHaveBeenCalledTimes(6);
       // Should delete 4 steps total (1 from each subcollection)
       expect(mockBatch.delete).toHaveBeenCalledTimes(4);
       expect(mockBatch.commit).toHaveBeenCalled();
@@ -167,6 +168,7 @@ describe("Step CRUD Operations", () => {
     (doc as jest.Mock).mockReturnValue({ type: "DocumentReference" });
     (query as jest.Mock).mockReturnValue({ type: "Query" });
     (orderBy as jest.Mock).mockReturnValue({ type: "OrderBy" });
+    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
   });
 
   describe("createStep", () => {
@@ -229,8 +231,8 @@ describe("Step CRUD Operations", () => {
 
       const result = await getStepsByModuleId("module123");
 
-      // Should query all 4 subcollections
-      expect(getDocs).toHaveBeenCalledTimes(4);
+      // The four populated fixtures plus the sorting and poll collections.
+      expect(getDocs).toHaveBeenCalledTimes(6);
       expect(query).toHaveBeenCalled();
       expect(orderBy).toHaveBeenCalledWith("order", "asc");
 
