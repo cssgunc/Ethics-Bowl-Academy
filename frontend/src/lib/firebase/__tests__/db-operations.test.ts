@@ -32,11 +32,16 @@ import {
   createStep,
   getStepsByModuleId,
   deleteStep,
+  getStepById,
+  updateStep,
 } from "../db-operations";
+
+import { STEP_COLLECTIONS } from "../types";
 
 describe("Module CRUD Operations", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
 
     (collection as jest.Mock).mockReturnValue({ type: "CollectionReference" });
     (doc as jest.Mock).mockReturnValue({ type: "DocumentReference" });
@@ -138,7 +143,11 @@ describe("Module CRUD Operations", () => {
         .mockResolvedValueOnce({ docs: mockVideoSteps })
         .mockResolvedValueOnce({ docs: mockQuizSteps })
         .mockResolvedValueOnce({ docs: mockFlashcardsSteps })
-        .mockResolvedValueOnce({ docs: mockFreeResponseSteps });
+        .mockResolvedValueOnce({ docs: mockFreeResponseSteps })
+        .mockResolvedValueOnce({ docs: [] })
+        .mockResolvedValueOnce({ docs: [] })
+        .mockResolvedValueOnce({ docs: [] })
+        .mockResolvedValueOnce({ docs: [] });
 
       const mockBatch = {
         delete: jest.fn(),
@@ -149,8 +158,8 @@ describe("Module CRUD Operations", () => {
 
       await deleteModule("module123", true);
 
-      // Should query all 4 subcollections
-      expect(getDocs).toHaveBeenCalledTimes(4);
+      // Query every registered step subcollection
+      expect(getDocs).toHaveBeenCalledTimes(Object.keys(STEP_COLLECTIONS).length);
       // Should delete 4 steps total (1 from each subcollection)
       expect(mockBatch.delete).toHaveBeenCalledTimes(4);
       expect(mockBatch.commit).toHaveBeenCalled();
@@ -161,7 +170,8 @@ describe("Module CRUD Operations", () => {
 
 describe("Step CRUD Operations", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
 
     (collection as jest.Mock).mockReturnValue({ type: "CollectionReference" });
     (doc as jest.Mock).mockReturnValue({ type: "DocumentReference" });
@@ -225,12 +235,16 @@ describe("Step CRUD Operations", () => {
         .mockResolvedValueOnce({ docs: mockVideoSteps })
         .mockResolvedValueOnce({ docs: mockQuizSteps })
         .mockResolvedValueOnce({ docs: mockFlashcardsSteps })
-        .mockResolvedValueOnce({ docs: mockFreeResponseSteps });
+        .mockResolvedValueOnce({ docs: mockFreeResponseSteps })
+        .mockResolvedValueOnce({ docs: [] })
+        .mockResolvedValueOnce({ docs: [] })
+        .mockResolvedValueOnce({ docs: [] })
+        .mockResolvedValueOnce({ docs: [] });
 
       const result = await getStepsByModuleId("module123");
 
-      // Should query all 4 subcollections
-      expect(getDocs).toHaveBeenCalledTimes(4);
+      // Query every registered step subcollection
+      expect(getDocs).toHaveBeenCalledTimes(Object.keys(STEP_COLLECTIONS).length);
       expect(query).toHaveBeenCalled();
       expect(orderBy).toHaveBeenCalledWith("order", "asc");
 
@@ -264,5 +278,59 @@ describe("Step CRUD Operations", () => {
         })
       );
     });
+  });
+});
+
+
+describe("Debate persistence", () => {
+  const debate = {
+    type: "debate" as const, title: "Debate", order: 0,
+    isOptional: false, createdBy: "owner",
+    modulePrompt: "Discuss ethics.", startQuestion: "What is fair?", maxStudentTurns: 5,
+  };
+  beforeEach(() => {
+    jest.resetAllMocks();
+    (collection as jest.Mock).mockImplementation((_db, ...path) => path.join("/"));
+    (doc as jest.Mock).mockImplementation((_db, ...path) => path.join("/"));
+    (query as jest.Mock).mockImplementation((ref) => ref);
+    (serverTimestamp as jest.Mock).mockReturnValue("TIMESTAMP");
+    (getDoc as jest.Mock).mockResolvedValue({ exists: () => true, id: "debate1", data: () => ({ ...debate, stepCount: 1 }) });
+    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
+    (addDoc as jest.Mock).mockResolvedValue({ id: "new-debate" });
+  });
+  it("creates a debate and increments the module count", async () => {
+    expect(await createStep("module1", debate)).toEqual({ id: "new-debate", ...debate });
+    expect(addDoc).toHaveBeenCalledWith("modules/module1/debates", { ...debate, createdAt: "TIMESTAMP", updatedAt: "TIMESTAMP" });
+    expect(updateDoc).toHaveBeenCalledWith("modules/module1", expect.objectContaining({ stepCount: 2 }));
+  });
+  it("loads a debate by ID and with its module, including additional resources", async () => {
+    expect(await getStepById("module1", "debate1", "debate")).toMatchObject({ id: "debate1", ...debate });
+    expect(getDoc).toHaveBeenCalledWith("modules/module1/debates/debate1");
+    (getDocs as jest.Mock).mockImplementation(async (path) => ({ docs:
+      path.endsWith("/debates") ? [{ id: "debate1", data: () => debate }] :
+      path.endsWith("/additionalResources") ? [{ id: "resources1", data: () => ({ type: "additionalResources", order: 2 }) }] : []
+    }));
+    const steps = await getStepsByModuleId("module1");
+    expect(steps.map((step) => step.id)).toEqual(["debate1", "resources1"]);
+    expect(steps[0]).toMatchObject(debate);
+  });
+  it("edits payloads and reorders debates without changing their creator", async () => {
+    await updateStep("module1", "debate1", "debate", { ...debate, maxStudentTurns: 10, order: 3 });
+    const { createdBy, ...editable } = debate;
+    expect(updateDoc).toHaveBeenCalledWith("modules/module1/debates/debate1", { ...editable, maxStudentTurns: 10, order: 3, updatedAt: "TIMESTAMP" });
+  });
+  it("deletes a debate and decrements the count", async () => {
+    await deleteStep("module1", "debate1", "debate");
+    expect(deleteDoc).toHaveBeenCalledWith("modules/module1/debates/debate1");
+    expect(updateDoc).toHaveBeenCalledWith("modules/module1", expect.objectContaining({ stepCount: 0 }));
+  });
+  it("includes debates and additional resources when deleting a module", async () => {
+    (getDocs as jest.Mock).mockImplementation(async (path) => ({ docs: [{ ref: `${path}/step1` }] }));
+    const batch = { delete: jest.fn(), commit: jest.fn().mockResolvedValue(undefined) };
+    (writeBatch as jest.Mock).mockReturnValue(batch);
+    await deleteModule("module1");
+    expect(batch.delete).toHaveBeenCalledWith("modules/module1/debates/step1");
+    expect(batch.delete).toHaveBeenCalledWith("modules/module1/additionalResources/step1");
+    expect(batch.delete).toHaveBeenCalledTimes(Object.keys(STEP_COLLECTIONS).length);
   });
 });
