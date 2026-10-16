@@ -44,7 +44,7 @@ service cloud.firestore {
   function validateStep() {
     return request.resource.data.keys().hasAll(['title', 'type', 'order', 'createdBy', 'createdAt', 'updatedAt'])
     && request.resource.data.title is string
-    && request.resource.data.type in ['video', 'quiz', 'flashcards', 'freeResponse', 'poll', 'additionalResources', 'sorting']
+    && request.resource.data.type in ['video', 'quiz', 'flashcards', 'freeResponse', 'poll', 'additionalResources', 'sorting', 'debate']
     && request.resource.data.order is int
     && request.resource.data.createdBy is string
     && hasMatchingPayloadType()
@@ -59,7 +59,8 @@ service cloud.firestore {
     || (t == 'freeResponse' && 'prompt' in request.resource.data)
     || (t == 'poll' && 'question' in request.resource.data)
     || (t == 'additionalResources' && 'resources' in request.resource.data)
-    || (t == 'sorting' && 'prompt' in request.resource.data);
+    || (t == 'sorting' && 'prompt' in request.resource.data)
+    || (t == 'debate' && request.resource.data.keys().hasAll(['modulePrompt', 'startQuestion', 'maxStudentTurns']));
   }
 
   function validatePayload() {
@@ -70,7 +71,8 @@ service cloud.firestore {
     || (t == 'freeResponse' && validateFreeResponsePayload())
     || (t == 'poll' && validatePollPayload())
     || (t == 'additionalResources' && validateAdditionalResourcesPayload())
-    || (t == 'sorting' && validateSortingPayload());
+    || (t == 'sorting' && validateSortingPayload())
+    || (t == 'debate' && validateDebatePayload());
   }
 
   function validateVideoPayload() {
@@ -135,6 +137,17 @@ service cloud.firestore {
       && (!('answerKey' in d) || d.answerKey is map);
   }
 
+  function validateDebatePayload() {
+    let d = request.resource.data;
+    return d.modulePrompt is string
+      && d.modulePrompt.size() > 0
+      && d.startQuestion is string
+      && d.startQuestion.size() > 0
+      && d.maxStudentTurns is int
+      && d.maxStudentTurns >= 3
+      && d.maxStudentTurns <= 10;
+  }
+
   function validateAdditionalResourcesPayload() {
     let d = request.resource.data;
     return d.resources is map
@@ -177,7 +190,11 @@ service cloud.firestore {
       'resources',
       // Sorting fields
       'buckets',
-      'answerKey'
+      'answerKey',
+      // Debate fields
+      'modulePrompt',
+      'startQuestion',
+      'maxStudentTurns'
     ];
     return request.resource.data.keys().hasOnly(allowedFields)
       && request.resource.data.diff(resource.data).affectedKeys().size() > 0
@@ -191,7 +208,7 @@ service cloud.firestore {
         !('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp
       )
       && (
-        !('type' in request.resource.data) || request.resource.data.type in ['video', 'quiz', 'flashcards', 'freeResponse', 'poll', 'additionalResources', 'sorting']
+        !('type' in request.resource.data) || request.resource.data.type in ['video', 'quiz', 'flashcards', 'freeResponse', 'poll', 'additionalResources', 'sorting', 'debate']
       )
       && (
         resource.data.createdBy == request.resource.data.createdBy
@@ -283,6 +300,30 @@ service cloud.firestore {
       allow update: if (isOwner() || isCollaborator() || isAdmin()) && validateModuleUpdate();
       allow delete: if isOwner() || isCollaborator() || isAdmin();
 
+      // Debate permissions come from the persisted parent module, not the step author.
+      function canEditDebates() {
+        let module = get(/databases/$(database)/documents/modules/$(moduleId)).data;
+        return isSignedIn() && (
+          module.createdBy == request.auth.uid
+          || ('collaborators' in module && request.auth.uid in module.collaborators)
+          || isAdmin()
+        );
+      }
+
+      // DEBATE STEPS
+      match /debates/{debateId} {
+        allow read: if get(/databases/$(database)/documents/modules/$(moduleId)).data.isPublic == true
+          || canEditDebates();
+        allow create: if canEditDebates()
+          && request.resource.data.type == 'debate'
+          && validateStep();
+        allow update: if canEditDebates()
+          && request.resource.data.type == 'debate'
+          && validateStep()
+          && validateStepUpdate();
+        allow delete: if canEditDebates();
+      }
+
       // VIDEO STEPS
       match /videos/{videoId} {
         allow read: if get(/databases/$(database)/documents/modules/$(moduleId)).data.isPublic == true || isOwner() || isCollaborator() || isAdmin();
@@ -365,6 +406,12 @@ service cloud.firestore {
         allow write: if isSignedIn() && request.auth.uid == userId && validateProgress();
         allow read: if isSignedIn() && request.auth.uid == userId;
         allow delete: if isAdmin();
+      }
+
+      // AI sessions are private; only the backend Admin SDK may write them.
+      match /debateSessions/{sessionId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow write: if false;
       }
 
       // JOURNAL
