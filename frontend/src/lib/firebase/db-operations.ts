@@ -105,18 +105,8 @@ export const deleteModule = async (
   if (deleteSteps) {
     // Delete from all step subcollections
     const batch = writeBatch(db!);
-    const collectionNames: StepType[] = [
-      "video",
-      "quiz",
-      "flashcards",
-      "freeResponse",
-      "sorting",
-      "poll",
-    ];
-
     await Promise.all(
-      collectionNames.map(async (type) => {
-        const collectionName = STEP_COLLECTIONS[type];
+      Object.values(STEP_COLLECTIONS).map(async (collectionName) => {
         const stepsRef = collection(db!, "modules", moduleId, collectionName);
         const stepsSnapshot = await getDocs(stepsRef);
 
@@ -152,18 +142,8 @@ export const getStepById = async (
 export const getStepsByModuleId = async (moduleId: string): Promise<Step[]> => {
   const allSteps: Step[] = [];
 
-  const collectionNames: StepType[] = [
-    "video",
-    "quiz",
-    "flashcards",
-    "freeResponse",
-    "sorting",
-    "poll",
-  ];
-
   await Promise.all(
-    collectionNames.map(async (type) => {
-      const collectionName = STEP_COLLECTIONS[type];
+    Object.values(STEP_COLLECTIONS).map(async (collectionName) => {
       const stepsRef = collection(db!, "modules", moduleId, collectionName);
       const stepsQuery = query(stepsRef, orderBy("order", "asc"));
       const stepsSnapshot = await getDocs(stepsQuery);

@@ -83,7 +83,8 @@ export type StepType =
   | "freeResponse"
   | "sorting"
   | "poll"
-  | "additionalResources";
+  | "additionalResources"
+  | "debate";
 
 // Subcollection name mapping
 export const STEP_COLLECTIONS = {
@@ -94,6 +95,7 @@ export const STEP_COLLECTIONS = {
   sorting: "sorting",
   poll: "polls",
   additionalResources: "additionalResources",
+  debate: "debates",
 } as const;
 
 export type StepCollectionName = (typeof STEP_COLLECTIONS)[StepType];
@@ -142,6 +144,15 @@ export interface FreeResponseStep extends StepBase {
   maxLength?: number;
 }
 
+export interface DebateStep extends StepBase {
+  type: "debate";
+  modulePrompt: string;
+  startQuestion: string;
+  maxStudentTurns: number;
+}
+
+
+
 export interface SortingBucket {
   id: string;
   label: string;
@@ -175,7 +186,8 @@ export type Step =
   | FreeResponseStep
   | SortingStep
   | PollStep
-  | AdditionalResourcesStep;
+  | AdditionalResourcesStep
+  | DebateStep;
 
 // Journal
 export interface JournalEntry {
@@ -187,3 +199,4 @@ export interface JournalEntry {
   moduleId?: string; // optional - for future module association
   stepId?: string; // optional - for future step association
 }
+
