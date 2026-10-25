@@ -52,3 +52,29 @@ For example, a new card at index 2 under a new bucket at index 1 has
 continues treating absent IDs as new items. #136 must generate those IDs, resolve
 all pairs into `answerKey`, and **remove `sortingAssignments` before writing**.
 This parser-only field is not a Firestore payload field.
+
+## Import planner (#135)
+
+`planImport(parsed, liveModule, liveSteps)` is pure: it performs no reads, writes,
+ID generation or input mutation. Matching IDs are updates even when unchanged;
+missing IDs are creates; omitted live steps are deletes. Creates and updates
+follow file order, deletes follow live order. Returned entries reference their
+original inputs; consumers must not mutate them.
+
+No module ID means a new module: all steps are creates, no live steps are deleted,
+and the plan is never stale. Copied step/nested IDs still produce errors. A supplied
+module ID must match the loaded module; unrelated live data cannot become deletes.
+Existing step types cannot change. Unknown, blank and duplicate IDs are errors.
+Nested poll options, sorting cards and sorting buckets must belong to the matching
+parent and item collection; omitted IDs remain absent for the apply stage.
+
+Removed poll options with positive votes are reported using live text and counts,
+including options in entirely deleted polls. Zero-vote removals do not warn.
+The planner compares file ISO timestamps numerically against live Dates or
+Firestore timestamps (`toMillis`/`toDate`). Only an older file is stale; equal,
+newer or omitted file timestamps are not. Invalid supplied timestamps produce
+errors. Step/nested errors use the step's source line; module errors use line 1.
+
+**Any errors make the whole plan ineligible to apply**, even when its arrays contain
+valid entries. The apply stage must resolve errors before writing. Preview UI and
+database application are outside this module's scope.
