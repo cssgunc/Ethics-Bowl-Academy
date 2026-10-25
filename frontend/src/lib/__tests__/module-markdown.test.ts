@@ -148,7 +148,7 @@ describe('module Markdown export', () => {
   });
 
   it('rejects unsupported step types', () => {
-    expect(() => serializeModule(fixture([{ ...base, type: 'debate' } as unknown as Step]))).toThrow('Unsupported step type: debate');
+    expect(() => serializeModule(fixture([{ ...base, type: 'unknown' } as unknown as Step]))).toThrow('Unsupported step type: unknown');
   });
 
   it('uses safe, unique filenames for duplicate titles and unsafe title characters', () => {

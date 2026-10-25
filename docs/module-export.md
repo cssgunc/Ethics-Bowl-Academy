@@ -14,7 +14,7 @@ Each document begins with YAML front matter containing `id`, `title`, `descripti
 
 Steps retain their display order, ID comments, and `##` titles. Settings immediately follow the title, including existing timestamps, author information, `estimatedMinutes`, `isOptional`, and additional fields. Nested settings use JSON flow values, which are valid YAML.
 
-Supported content: videos, quizzes, polls, sorting, flashcards, free responses, and additional resources. Debate support is deferred. Unsupported step types, invalid timestamps, corrupt sorting answer keys, and invalid quiz answer indices produce an error instead of a misleading export.
+Supported content: videos, quizzes, polls, sorting, flashcards, free responses, additional resources, and debates. Unsupported step types, invalid timestamps, corrupt sorting answer keys, and invalid quiz answer indices produce an error instead of a misleading export.
 
 - Quizzes use checkbox lists for correct answers, indented blockquotes for choice feedback, and `### Explanation` for legacy question feedback.
 - Poll questions follow the settings. Poll options retain IDs; vote counts are excluded.
@@ -23,11 +23,18 @@ Supported content: videos, quizzes, polls, sorting, flashcards, free responses, 
 - Free responses retain the prompt and `### Sample answer` when present.
 - Resource links retain labels and `(pdf)` annotations. A `resources` setting also retains resource IDs, metadata, and original legacy fields.
 - Extra nested fields not represented by the body remain in settings using the original field name (such as `options` or `cards`).
+- Debates use `maxStudentTurns` (integer 3–10), `### Context`, and `### Starting question`.
+
+On import, readable bodies take precedence over structured backup settings. Extra
+nested fields and resource IDs in backups are not imported; resource legacy URLs
+are derived from readable links. Known site metadata is ignored, while module ID
+and update time remain available to the import planner. See the
+[parser contract](../frontend/src/lib/importExport/README.md) for details.
 
 Existing authored Markdown and hosted image/PDF URLs are retained. Downloads contain Markdown files; linked assets remain hosted at their original URLs. Student responses and progress are not queried.
 
 ## Verification and deployment
 
-From `frontend`, run `npm test -- --runInBand`, `npx tsc --noEmit`, and `npm run build`. Run `npm run test:rules` with the Firebase CLI and Java installed to verify admin/private access in the local Firestore emulator.
+From `frontend`, run `npm test -- --runInBand`, `npx tsc --noEmit`, and `npm run lint`. Do not run production builds (see `CLAUDE.md`). Run `npm run test:rules` with the Firebase CLI and Java installed to verify admin/private access in the local Firestore emulator.
 
 Deploy the updated `backend/firestore.rules` with the frontend release. The rule change permits existing admins to read private module documents, matching their existing access to private step documents. Without it, listing all modules will be denied by Firestore.

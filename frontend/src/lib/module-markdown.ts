@@ -46,6 +46,10 @@ function serializeStep(step: Step): string {
   switch (step.type) {
     case 'video':
       break;
+    case 'debate':
+      omitted = ['modulePrompt', 'startQuestion'];
+      body.push('### Context', step.modulePrompt, '', '### Starting question', step.startQuestion);
+      break;
     case 'quiz':
       omitted = ['questions'];
       extraSettings.push(...nestedSetting('questions', step.questions, [
