@@ -44,3 +44,11 @@ export type UserClassroomMembership =
       teacherId: string;
       joinedAt: Timestamp;
     };
+
+export interface StudentClassroomMembership {
+  classroomId: string;
+  classroomName: string;
+  role: "student";
+  teacherId: string;
+  joinedAt: Timestamp;
+}
