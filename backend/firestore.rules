@@ -275,6 +275,109 @@ service cloud.firestore {
           && get(userDocPath).data.isAdmin == true;
       }
 
+    // CLASSROOMS
+    // Exact code reads are needed by the browser transactions; enumeration is denied.
+    function validClassroomCode(code) {
+      return code is string && code.matches('^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$');
+    }
+
+    function validTeacherClassroomIndex(data, classroomId, classroom) {
+      return data.keys().hasAll(['classroomId', 'classroomName', 'role', 'joinCode', 'createdAt'])
+        && data.keys().hasOnly(['classroomId', 'classroomName', 'role', 'joinCode', 'createdAt'])
+        && data.classroomId == classroomId
+        && data.classroomName == classroom.name
+        && data.role == 'teacher'
+        && data.joinCode == classroom.joinCode
+        && data.createdAt == request.time;
+    }
+
+    function validStudentClassroomIndex(data, classroomId, classroom) {
+      return data.keys().hasAll(['classroomId', 'classroomName', 'role', 'teacherId', 'joinedAt'])
+        && data.keys().hasOnly(['classroomId', 'classroomName', 'role', 'teacherId', 'joinedAt'])
+        && data.classroomId == classroomId
+        && data.classroomName == classroom.name
+        && data.role == 'student'
+        && data.teacherId == classroom.teacherId
+        && data.joinedAt == request.time;
+    }
+
+    function validClassroomCreation(classroomId) {
+      let classroom = getAfter(/databases/$(database)/documents/classrooms/$(classroomId)).data;
+      let codePath = /databases/$(database)/documents/classroomJoinCodes/$(classroom.joinCode);
+      let indexPath = /databases/$(database)/documents/users/$(request.auth.uid)/classrooms/$(classroomId);
+      let code = getAfter(codePath).data;
+      return classroom.keys().hasAll(['id', 'name', 'teacherId', 'teacherDisplayName', 'joinCode', 'studentCount', 'isArchived', 'createdAt', 'updatedAt'])
+        && classroom.keys().hasOnly(['id', 'name', 'teacherId', 'teacherDisplayName', 'joinCode', 'studentCount', 'isArchived', 'createdAt', 'updatedAt'])
+        && classroom.id == classroomId
+        && classroom.name is string && classroom.name.size() >= 1 && classroom.name.size() <= 80
+        && classroom.name.matches('.*[^\\s].*')
+        && classroom.teacherId == request.auth.uid
+        && classroom.teacherDisplayName is string
+        && validClassroomCode(classroom.joinCode)
+        && classroom.studentCount is int && classroom.studentCount == 0
+        && classroom.isArchived == false
+        && classroom.createdAt == request.time && classroom.updatedAt == request.time
+        && !exists(/databases/$(database)/documents/classrooms/$(classroomId))
+        && !exists(codePath) && !exists(indexPath)
+        && code.keys().hasAll(['classroomId', 'teacherId', 'isArchived', 'createdAt'])
+        && code.keys().hasOnly(['classroomId', 'teacherId', 'isArchived', 'createdAt'])
+        && code.classroomId == classroomId && code.teacherId == request.auth.uid
+        && code.isArchived == false && code.createdAt == request.time
+        && validTeacherClassroomIndex(getAfter(indexPath).data, classroomId, classroom);
+    }
+
+    // Validate the whole join so member, index and count cannot be written separately.
+    function validClassroomJoin(classroomId, userId) {
+      let classroomPath = /databases/$(database)/documents/classrooms/$(classroomId);
+      let memberPath = /databases/$(database)/documents/classrooms/$(classroomId)/members/$(userId);
+      let indexPath = /databases/$(database)/documents/users/$(userId)/classrooms/$(classroomId);
+      let classroom = get(classroomPath).data;
+      let after = getAfter(classroomPath).data;
+      let member = getAfter(memberPath).data;
+      let code = get(/databases/$(database)/documents/classroomJoinCodes/$(classroom.joinCode)).data;
+      return userId == request.auth.uid && classroom.teacherId != userId
+        && classroom.isArchived == false && code.isArchived == false
+        && code.classroomId == classroomId && code.teacherId == classroom.teacherId
+        && !exists(memberPath) && !exists(indexPath)
+        && member.keys().hasAll(['userId', 'role', 'displayName', 'email', 'joinedWithCode', 'joinedAt', 'status'])
+        && member.keys().hasOnly(['userId', 'role', 'displayName', 'email', 'joinedWithCode', 'joinedAt', 'status'])
+        && member.userId == userId && member.role == 'student' && member.status == 'active'
+        && member.displayName is string && member.email is string
+        && member.joinedWithCode == classroom.joinCode
+        && member.joinedAt == request.time
+        && after.diff(classroom).affectedKeys().hasOnly(['studentCount', 'updatedAt'])
+        && after.studentCount is int && after.studentCount == classroom.studentCount + 1
+        && after.updatedAt == request.time
+        && validStudentClassroomIndex(getAfter(indexPath).data, classroomId, classroom);
+    }
+
+    match /classrooms/{classroomId} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn() && validClassroomCreation(classroomId);
+      allow update: if isSignedIn() && validClassroomJoin(classroomId, request.auth.uid);
+      allow delete: if false;
+
+      match /members/{userId} {
+        allow get: if isSignedIn() && (request.auth.uid == userId
+          || get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId == request.auth.uid);
+        allow list: if isSignedIn()
+          && get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId == request.auth.uid;
+        allow create: if isSignedIn() && validClassroomJoin(classroomId, userId);
+        allow update, delete: if false;
+      }
+      // /polls/{pollId} is reserved for a future classroom-polls feature (default deny).
+    }
+
+    match /classroomJoinCodes/{joinCode} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn() && validClassroomCode(joinCode)
+        && getAfter(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId)).data.joinCode == joinCode
+        && validClassroomCreation(request.resource.data.classroomId);
+      allow update, delete: if false;
+    }
+
     // UPLOADED FILES
     match /uploadedFiles/{fileId} {
       allow read: if isSignedIn();
@@ -400,6 +503,16 @@ service cloud.firestore {
       allow update, delete: if request.auth.uid == userId;
       allow update: if isAdmin()
                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isAdmin']);
+
+      // The index provides discovery without listing the classrooms collection.
+      match /classrooms/{classroomId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId && (
+          (request.resource.data.role == 'teacher' && validClassroomCreation(classroomId))
+          || (request.resource.data.role == 'student' && validClassroomJoin(classroomId, userId))
+        );
+        allow update, delete: if false;
+      }
 
       // PROGRESS
       match /progress/{moduleId} {
