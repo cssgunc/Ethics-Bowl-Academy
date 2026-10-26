@@ -1,11 +1,14 @@
 // Client-side db operations
 
-import { db } from "./firebaseConfig";
+import { auth, db } from "./firebaseConfig";
+import type { Classroom, UserClassroomMembership } from "./classrooms/types";
 
 import {
   collection,
   doc,
   getDoc,
+  getDocFromServer,
+  getDocsFromServer,
   getDocs,
   setDoc,
   updateDoc,
@@ -17,6 +20,7 @@ import {
   writeBatch,
   orderBy,
   arrayRemove,
+  runTransaction,
 } from "firebase/firestore";
 
 import {
@@ -40,6 +44,161 @@ function normalizeStepFromFirestore(id: string, data: any): Step {
     } as Step;
   }
   return { id, ...data } as Step;
+}
+
+// Classroom operations. Roles belong to classroom indexes, never the user document.
+const JOIN_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const MAX_JOIN_CODE_ATTEMPTS = 10;
+
+function requireClassroomUser(userId: string) {
+  if (!auth?.currentUser || auth.currentUser.uid !== userId) {
+    throw new Error("Please sign in again to manage your classrooms.");
+  }
+  if (!db) throw new Error("Classrooms are unavailable. Please try again later.");
+  return db;
+}
+
+function classroomOperationError(error: unknown, fallback: string): Error {
+  const code = (error as { code?: string } | null)?.code;
+  if (code === "unauthenticated" || code === "permission-denied") {
+    return new Error("Your session may have expired. Please sign in again.");
+  }
+  if (code === "unavailable" || code === "deadline-exceeded") {
+    return new Error("Unable to connect. Check your connection and try again.");
+  }
+  return new Error(fallback);
+}
+
+export function createClassroomAttemptId(userId: string): string {
+  return doc(collection(requireClassroomUser(userId), "classrooms")).id;
+}
+
+function matchClassroomAttempt(classroom: Classroom, teacherId: string, name: string): Classroom {
+  if (classroom.teacherId !== teacherId || classroom.name !== name) {
+    throw new Error("Conflicting classroom creation attempt");
+  }
+  return classroom;
+}
+
+// Retain attemptId across retries of one submission; omit it only for a new creation.
+export async function createClassroom(
+  teacherId: string,
+  teacherDisplayName: string,
+  name: string,
+  attemptId?: string,
+): Promise<Classroom> {
+  const database = requireClassroomUser(teacherId);
+  const trimmedName = name.trim();
+  if (trimmedName.length < 1 || trimmedName.length > 80) {
+    throw new Error("Classroom names must be between 1 and 80 characters.");
+  }
+
+  const classroomRef = attemptId
+    ? doc(database, "classrooms", attemptId)
+    : doc(collection(database, "classrooms"));
+  for (let attempt = 0; attempt < MAX_JOIN_CODE_ATTEMPTS; attempt++) {
+    let joinCode: string;
+    try {
+      // The 32-character alphabet divides 256 evenly, so byte mapping is unbiased.
+      joinCode = Array.from(
+        globalThis.crypto.getRandomValues(new Uint8Array(6)),
+        (byte) => JOIN_CODE_CHARACTERS[byte % JOIN_CODE_CHARACTERS.length],
+      ).join("");
+    } catch {
+      throw new Error("Unable to generate a classroom code. Please try again.");
+    }
+
+    const codeRef = doc(database, "classroomJoinCodes", joinCode);
+    const indexRef = doc(database, "users", teacherId, "classrooms", classroomRef.id);
+    let result: Classroom | boolean;
+    try {
+      result = await runTransaction(database, async (transaction): Promise<Classroom | boolean> => {
+        const existing = await transaction.get(classroomRef);
+        if (existing.exists()) {
+          return matchClassroomAttempt({ ...existing.data(), id: existing.id } as Classroom, teacherId, trimmedName);
+        }
+        // A collision is not a partial creation: no writes occur on this path.
+        if ((await transaction.get(codeRef)).exists()) return false;
+        const timestamp = serverTimestamp();
+        transaction.set(classroomRef, {
+          id: classroomRef.id,
+          name: trimmedName,
+          teacherId,
+          teacherDisplayName,
+          joinCode,
+          studentCount: 0,
+          isArchived: false,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        transaction.set(codeRef, {
+          classroomId: classroomRef.id,
+          teacherId,
+          isArchived: false,
+          createdAt: timestamp,
+        });
+        transaction.set(indexRef, {
+          classroomId: classroomRef.id,
+          classroomName: trimmedName,
+          role: "teacher",
+          joinCode,
+          createdAt: timestamp,
+        });
+        return true;
+      });
+    } catch (error) {
+      // Rules can reject a stale transaction before the SDK retries it. Recover a
+      // matching completed attempt, or retry a code won by another classroom.
+      if ((error as { code?: string } | null)?.code === "permission-denied") {
+        try {
+          const existing = await getDocFromServer(classroomRef);
+          if (existing.exists()) {
+            return matchClassroomAttempt({ ...existing.data(), id: existing.id } as Classroom, teacherId, trimmedName);
+          }
+          const reservation = await getDocFromServer(codeRef);
+          if (reservation.exists() && reservation.data().classroomId !== classroomRef.id) {
+            continue;
+          }
+        } catch {
+          // Keep the original friendly error if a collision cannot be confirmed.
+        }
+      }
+      throw classroomOperationError(error, "Unable to create your classroom. Please try again.");
+    }
+    if (result === false) continue;
+    if (result !== true) return result;
+    // Creation is committed. A failed refresh must not be reported as a failed save.
+    try {
+      const saved = await getDocFromServer(classroomRef);
+      if (!saved.exists()) throw new Error("Missing committed classroom");
+      return matchClassroomAttempt({ ...saved.data(), id: saved.id } as Classroom, teacherId, trimmedName);
+    } catch {
+      throw new Error("Your classroom was saved, but its details could not be loaded. Retry to retrieve it.");
+    }
+  }
+  throw new Error("Unable to find an available classroom code. Please try again.");
+}
+
+export async function getOwnedClassrooms(userId: string): Promise<Classroom[]> {
+  const database = requireClassroomUser(userId);
+  try {
+    const index = await getDocsFromServer(collection(database, "users", userId, "classrooms"));
+    const classrooms = await Promise.all(
+      index.docs
+        .filter((entry) => (entry.data() as UserClassroomMembership).role === "teacher")
+        .map(async (entry) => {
+          const snapshot = await getDocFromServer(doc(database, "classrooms", entry.id));
+          if (!snapshot.exists()) return null;
+          const classroom = { ...snapshot.data(), id: snapshot.id } as Classroom;
+          return classroom.teacherId === userId ? classroom : null;
+        }),
+    );
+    return classrooms
+      .filter((classroom): classroom is Classroom => classroom !== null)
+      .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  } catch (error) {
+    throw classroomOperationError(error, "Unable to load your classrooms. Please try again.");
+  }
 }
 
 // Module CRUD operations
