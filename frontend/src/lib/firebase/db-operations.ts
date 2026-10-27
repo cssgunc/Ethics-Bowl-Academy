@@ -21,6 +21,7 @@ import {
   orderBy,
   arrayRemove,
   runTransaction,
+  increment,
 } from "firebase/firestore";
 
 import {
@@ -33,6 +34,94 @@ import {
   JournalEntry,
   PollStep,
 } from "./types";
+
+const CLASSROOM_JOIN_CODE_PATTERN = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/;
+
+export const normalizeClassroomJoinCode = (joinCode: string): string =>
+  joinCode.toUpperCase().replace(/[\s-]/g, "");
+
+export const joinClassroom = async (
+  userId: string,
+  displayName: string,
+  email: string,
+  joinCode: string,
+): Promise<{
+  classroomId: string;
+  classroomName: string;
+  teacherDisplayName: string;
+  alreadyMember: boolean;
+}> => {
+  if (!auth?.currentUser || auth.currentUser.uid !== userId) {
+    throw new Error("Authentication required");
+  }
+  if (!db) throw new Error("Classroom join unavailable");
+
+  const normalizedCode = normalizeClassroomJoinCode(joinCode);
+  if (!CLASSROOM_JOIN_CODE_PATTERN.test(normalizedCode)) {
+    throw new Error("Invalid or expired classroom code");
+  }
+
+  return runTransaction(db, async (transaction) => {
+    const joinCodeRef = doc(db!, "classroomJoinCodes", normalizedCode);
+    const joinCodeSnapshot = await transaction.get(joinCodeRef);
+    if (!joinCodeSnapshot.exists()) {
+      throw new Error("Invalid or expired classroom code");
+    }
+
+    const joinCodeData = joinCodeSnapshot.data();
+    const classroomId = joinCodeData.classroomId as string;
+    const classroomRef = doc(db!, "classrooms", classroomId);
+    const classroomSnapshot = await transaction.get(classroomRef);
+    if (!classroomSnapshot.exists() || classroomSnapshot.data().isArchived) {
+      throw new Error("Invalid or expired classroom code");
+    }
+
+    const classroom = classroomSnapshot.data();
+    if (classroom.teacherId === userId) {
+      throw new Error("You cannot join a classroom you own");
+    }
+
+    const memberRef = doc(db!, "classrooms", classroomId, "members", userId);
+    const memberSnapshot = await transaction.get(memberRef);
+    if (memberSnapshot.exists() && memberSnapshot.data().status === "active") {
+      return {
+        classroomId,
+        classroomName: classroom.name,
+        teacherDisplayName: classroom.teacherDisplayName || "",
+        alreadyMember: true,
+      };
+    }
+
+    const membershipRef = doc(db!, "users", userId, "classrooms", classroomId);
+    transaction.set(memberRef, {
+      userId,
+      role: "student",
+      displayName,
+      email,
+      joinedWithCode: normalizedCode,
+      joinedAt: serverTimestamp(),
+      status: "active",
+    });
+    transaction.set(membershipRef, {
+      classroomId,
+      classroomName: classroom.name,
+      role: "student",
+      teacherId: classroom.teacherId,
+      joinedAt: serverTimestamp(),
+    });
+    transaction.update(classroomRef, {
+      studentCount: increment(1),
+      updatedAt: serverTimestamp(),
+    });
+
+    return {
+      classroomId,
+      classroomName: classroom.name,
+      teacherDisplayName: classroom.teacherDisplayName || "",
+      alreadyMember: false,
+    };
+  });
+};
 
 // ✅ Helper: normalize any step coming from Firestore
 function normalizeStepFromFirestore(id: string, data: any): Step {
