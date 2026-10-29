@@ -46,6 +46,10 @@ function serializeStep(step: Step): string {
   switch (step.type) {
     case 'video':
       break;
+    case 'debate':
+      omitted = ['modulePrompt', 'startQuestion'];
+      body.push('### Context', step.modulePrompt, '', '### Starting question', step.startQuestion);
+      break;
     case 'quiz':
       omitted = ['questions'];
       extraSettings.push(...nestedSetting('questions', step.questions, [
@@ -55,13 +59,14 @@ function serializeStep(step: Step): string {
         if (!Number.isInteger(question.correctIndex) || question.correctIndex < 0 || question.correctIndex >= question.choices.length) {
           throw new Error(`Quiz "${step.title}" has an invalid correct answer.`);
         }
-        body.push(`### ${question.prompt}`);
+        const [firstLine, ...promptLines] = question.prompt.replace(/\r\n?/g, '\n').split('\n');
+        body.push(`### ${firstLine} <!-- question -->`, ...promptLines);
         question.choices.forEach((choice, index) => {
           body.push(`- [${index === question.correctIndex ? 'x' : ' '}] ${listItem(choice)}`);
           const feedback = question.choiceExplanations?.[index];
           if (feedback) body.push(...feedback.replace(/\r\n?/g, '\n').split('\n').map((line) => `  > ${line}`));
         });
-        if (question.explanation) body.push('', '### Explanation', question.explanation);
+        if (question.explanation) body.push('', '### Explanation <!-- explanation -->', question.explanation);
         body.push('');
       }
       break;

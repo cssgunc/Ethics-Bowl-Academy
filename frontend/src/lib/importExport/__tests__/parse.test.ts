@@ -123,7 +123,7 @@ I would pull the lever because...`),
     expect(valid(step("poll", 'allowMultipleChoice: false\nQ\n- B <!-- option id="b" -->\n- A <!-- option id="a" -->')).steps[0].data.options).toEqual([{ id: "b", text: "B" }, { id: "a", text: "A" }]);
   });
 
-  test("uses one registry across module, step, option, bucket, and card IDs", () => {
+  test("keeps module/step collisions separate from nested collection IDs", () => {
     const input = file([
       '<!-- step id="same" type="poll" -->\n## P\nallowMultipleChoice: false\nQ\n- A <!-- option id="same" -->\n- B',
       '<!-- step type="sorting" -->\n## S\nPrompt\n### A <!-- bucket id="same" -->\n- C <!-- card id="same" -->\n### B',
@@ -131,7 +131,7 @@ I would pull the lever because...`),
     const result = parseModule(input);
     const duplicates = result.errors.filter(e => e.message.includes("appears twice"));
     expect(result.module).toBeNull();
-    expect(duplicates.map(e => e.line)).toEqual([9, 13, 18, 19]);
+    expect(duplicates.map(e => e.line)).toEqual([9]);
     expect(duplicates.every(e => e.message.includes("line 2"))).toBe(true);
   });
 
@@ -205,9 +205,8 @@ I would pull the lever because...`),
   ])("validates required content: %s %s", (type, body, message) => { invalid(step(type, body), message); });
 
   test.each([
-    ["video", "youtubeUrl: https://example.com\nunknown: true", "Unknown setting"],
+    ["video", "youtubeUrl: https://example.com\nunknown: true", "Unexpected video body"],
     ["video", "youtubeUrl: https://example.com\nyoutubeUrl: https://example.com", "Duplicate setting"],
-    ["video", "youtubeUrl: https://example.com\ncreatedBy: user", "Unknown setting"],
     ["video", "youtubeUrl: 1", "must be string"],
     ["video", "youtubeUrl: https://example.com\ndurationSec: 1.5", "must be integer"],
     ["video", "youtubeUrl: https://example.com\nisOptional: yes", "must be boolean"],
@@ -231,7 +230,7 @@ I would pull the lever because...`),
     [frontmatter.replace("description: Introduction to ethics", "description: 1"), "description must be a string"],
     [frontmatter.replace("tags: [intro, ethics]", "tags: [intro, 1]"), "tags must be an array"],
     [frontmatter.replace("isPublic: true", 'isPublic: "true"'), "isPublic must be a boolean"],
-    [frontmatter.replace("isPublic: true", "isPublic: true\ncreatedBy: user"), "Unsupported module metadata"],
+    [frontmatter.replace("isPublic: true", "isPublic: true\nunknown: user"), "Unsupported module metadata"],
     [frontmatter.replace("isPublic: true", "isPublic: true\nid: 123"), "ID must be a nonblank"],
     [frontmatter.replace("isPublic: true", "isPublic: true\nupdatedAt: 2026-02-30T12:00:00Z"), "valid timestamp"],
     [frontmatter.replace("isPublic: true", "isPublic: true\nupdatedAt: 123"), "valid timestamp"],
@@ -243,7 +242,7 @@ I would pull the lever because...`),
   });
 
   test.each([
-    ['<!-- step type="debate" -->\n## Debate', "deferred until #127"],
+    ['<!-- step type="debate" -->\n## Debate', "Missing required debate section"],
     ['<!-- step type="unknown" -->\n## Unknown', "Unsupported step type"],
     ['<!-- step type="video" extra="x" -->\n## Video', "Malformed step marker"],
     ['<!-- step type="video" type="video" -->\n## Video\nyoutubeUrl: https://example.com', "Duplicate step attribute"],
@@ -253,7 +252,7 @@ I would pull the lever because...`),
     [step("freeResponse", "Prompt\n<!-- option id=\"bad\" -->"), "Misplaced section"],
     [step("video", "youtubeUrl: https://example.com\nBody"), "Unexpected video body"],
     [step("poll", 'allowMultipleChoice: false\nQ\n- A <!-- card id="bad" -->\n- B'), "Malformed or misplaced option"],
-    [step("quiz", "passingScore: 50\nshuffle: false\n### Q\n> orphan\n- [x] A"), "Expected a checkbox"],
+    [step("quiz", "passingScore: 50\nshuffle: false\n### Q\n> orphan\n- [x] A"), "Misplaced section"],
     [step("freeResponse", "Prompt\n```\ncode"), "Unclosed fenced"],
   ])("reports malformed or misplaced structures", (input, message) => { invalid(input, message); });
 

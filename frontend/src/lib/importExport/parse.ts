@@ -10,6 +10,15 @@ const settingTypes: Record<string, Record<string, string>> = {
   quiz: { passingScore: "integer", shuffle: "boolean" },
   freeResponse: { maxLength: "integer" },
   poll: { allowMultipleChoice: "boolean" },
+  flashcards: { studyMode: "string" },
+  debate: { maxStudentTurns: "integer" },
+};
+const siteFields = new Set(["createdBy", "createdAt", "updatedAt", "moduleId", "order", "votes", "stepCount", "collaborators", "publishedVersion"]);
+const moduleSiteFields = new Set([...siteFields, "thumbnailUrl"]);
+// Serializer backups are deliberately not writable payloads. The readable body wins.
+const bodySettings: Record<string, string[]> = {
+  quiz: ["questions"], flashcards: ["cards"], poll: ["options"],
+  sorting: ["buckets", "cards"], additionalResources: ["resources"],
 };
 const commonSettings = { estimatedMinutes: "number", isOptional: "boolean" };
 const reservedFields = new Set([
@@ -18,7 +27,7 @@ const reservedFields = new Set([
 ]);
 const nonblank = (value: unknown): value is string => typeof value === "string" && !!value.trim();
 const heading = (l: Line) => !l.code ? /^###(?:\s+(.*))?$/.exec(l.text.trim()) : null;
-const bullet = (l: Line) => !l.code ? /^-\s+(.*)$/.exec(l.text.trim()) : null;
+const bullet = (l: Line) => !l.code ? /^-\s+([\s\S]*)$/.exec(l.text.trim()) : null;
 const structural = (l: Line) => !l.code && /^(?:#{1,6}(?:\s|$)|-\s|>\s)|<!--\s*(?:step|option|bucket|card)\b/.test(l.text.trim());
 const escapeAttribute = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "&#39;");
 
@@ -32,11 +41,11 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
   const ids = new Map<string, number>();
   const imageFilenames: string[] = [];
   const fail = (line: number, message: string) => { errors.push({ line, message }); };
-  const register = (id: unknown, line: number): id is string => {
+  const register = (id: unknown, line: number, registry = ids): id is string => {
     if (!nonblank(id)) { fail(line, "ID must be a nonblank string."); return false; }
-    const first = ids.get(id);
+    const first = registry.get(id);
     if (first !== undefined) fail(line, `ID "${id}" appears twice (first appeared on line ${first}). Remove the copied ID to create a new item.`);
-    else ids.set(id, line);
+    else registry.set(id, line);
     return true;
   };
   const lines: Line[] = markdown.replace(/^\uFEFF/, "").split(/\r?\n/).map((text, i) => ({ text, line: i + 1, code: false }));
@@ -63,7 +72,8 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
             const range = (pair.key as { range?: number[] })?.range;
             const line = range ? counter.linePos(range[0]).line + 1 : 2;
             fieldLines.set(key, line);
-            if (!["id", "title", "description", "tags", "isPublic", "updatedAt"].includes(key)) fail(line, `Unsupported module metadata "${key}" (site-managed fields cannot be imported).`);
+            if (key !== "updatedAt" && moduleSiteFields.has(key)) continue;
+            if (!["id", "title", "description", "tags", "isPublic", "updatedAt"].includes(key)) fail(line, `Unsupported module metadata "${key}".`);
             Object.defineProperty(metadata, key, { value: values[key], enumerable: true, configurable: true, writable: true });
           }
         }
@@ -111,11 +121,11 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
     }).join("\n");
   };
   const requiredText = (value: string, line: number, name: string) => { if (!value.trim()) fail(line, `${name} must not be blank.`); };
-  const item = (raw: string, kind: string, line: number): Item => {
-    const match = /^(.*?)\s*<!--\s*(option|bucket|card)\s+id="([^"]*)"\s*-->\s*$/.exec(raw);
+  const item = (raw: string, kind: string, line: number, registry: Map<string, number>): Item => {
+    const match = /^([\s\S]*?)\s*<!--\s*(option|bucket|card)\s+id="([^"]*)"\s*-->\s*$/.exec(raw);
     if (match && match[2] === kind) {
       const result: Item = { text: match[1] };
-      if (register(match[3], line)) result.id = match[3];
+      if (register(match[3], line, registry)) result.id = match[3];
       return result;
     }
     if (/<!--/.test(raw)) fail(line, `Malformed or misplaced ${kind} ID marker.`);
@@ -147,7 +157,7 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
       attrs[attr[1]] = attr[2];
     }
     if ("id" in attrs) register(attrs.id, opening.line);
-    if (typeof attrs.type !== "string" || !Object.prototype.hasOwnProperty.call(STEP_COLLECTIONS, attrs.type)) { fail(opening.line, `Unsupported step type "${attrs.type ?? ""}"${attrs.type === "debate" ? "; debate is deferred until #127" : ""}.`); continue; }
+    if (typeof attrs.type !== "string" || !Object.prototype.hasOwnProperty.call(STEP_COLLECTIONS, attrs.type)) { fail(opening.line, `Unsupported step type "${attrs.type ?? ""}".`); continue; }
     const type = attrs.type as StepType;
     let cursor = 0;
     while (cursor < block.length && !block[cursor].text.trim()) cursor++;
@@ -165,15 +175,21 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
         if (!l.text.trim()) { cursor++; continue; }
         const m = !l.code && /^([A-Za-z][\w]*):(?:\s+(.*)|\s*)$/.exec(l.text);
         if (!m) break;
+        const backup = bodySettings[type]?.includes(m[1]);
+        if (!Object.prototype.hasOwnProperty.call(allowed, m[1]) && !siteFields.has(m[1]) && !backup) break;
         cursor++;
+        if (siteFields.has(m[1])) continue;
         if (settings.has(m[1])) fail(l.line, `Duplicate setting "${m[1]}".`);
         settings.set(m[1], l.line);
-        if (!Object.prototype.hasOwnProperty.call(allowed, m[1])) { fail(l.line, `Unknown setting "${m[1]}" for ${type}.`); continue; }
         const doc = parseDocument(m[2] ?? "");
         if (doc.errors.length || doc.warnings.length) { fail(l.line, `Invalid setting "${m[1]}".`); continue; }
         let value: unknown;
         try { value = doc.toJS({ maxAliasCount: 100 }); }
         catch { fail(l.line, `Invalid YAML alias in setting "${m[1]}".`); continue; }
+        if (backup) {
+          if (m[1] === "resources" ? !value || typeof value !== "object" || Array.isArray(value) : !Array.isArray(value)) fail(l.line, `Invalid structured setting "${m[1]}".`);
+          continue;
+        }
         const expected = allowed[m[1]];
         if ((expected === "integer" ? !Number.isInteger(value) : typeof value !== expected) || (typeof value === "number" && !Number.isFinite(value))) fail(l.line, `Setting "${m[1]}" must be ${expected}.`);
         else data[m[1]] = value;
@@ -184,6 +200,9 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
     const settingLine = (key: string) => settings.get(key) ?? titleLine.line;
     const requireSetting = (key: string) => { if (!settings.has(key)) fail(titleLine.line, `Missing required setting "${key}".`); };
     const body = block.slice(cursor);
+    const optionIds = new Map<string, number>();
+    const bucketIds = new Map<string, number>();
+    const cardIds = new Map<string, number>();
     function parseStepBody() {
       const sectionStarts = body.map((l, i) => heading(l) ? i : -1).filter(i => i >= 0);
       const prefix = body.slice(0, sectionStarts[0] ?? body.length);
@@ -199,18 +218,64 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
           else data.sampleAnswer = text(body.slice(i + 1, sectionStarts[n + 1] ?? body.length), true);
         });
         if (typeof data.maxLength === "number" && (data.maxLength < 1 || data.maxLength > 10000)) fail(settingLine("maxLength"), "maxLength must be between 1 and 10,000.");
+      } else if (type === "debate") {
+        requireSetting("maxStudentTurns");
+        if (typeof data.maxStudentTurns === "number" && (data.maxStudentTurns < 3 || data.maxStudentTurns > 10)) fail(settingLine("maxStudentTurns"), "maxStudentTurns must be between 3 and 10.");
+        for (const l of prefix) if (l.text.trim()) fail(l.line, "Expected ### Context or ### Starting question.");
+        const seen = new Set<string>();
+        sectionStarts.forEach((i, n) => {
+          const name = heading(body[i])?.[1] ?? "";
+          const key = name === "Context" ? "modulePrompt" : name === "Starting question" ? "startQuestion" : undefined;
+          if (!key || seen.has(key)) { fail(body[i].line, "Expected one ### Context and one ### Starting question section."); return; }
+          seen.add(key);
+          data[key] = text(body.slice(i + 1, sectionStarts[n + 1] ?? body.length), true);
+          requiredText(data[key] as string, body[i].line, name);
+        });
+        for (const key of ["modulePrompt", "startQuestion"]) if (!seen.has(key)) fail(titleLine.line, `Missing required debate section: ${key === "modulePrompt" ? "Context" : "Starting question"}.`);
       } else if (type === "flashcards" || type === "quiz") {
+        if (data.studyMode !== undefined && !["spaced", "random"].includes(data.studyMode as string)) fail(settingLine("studyMode"), "studyMode must be spaced or random.");
         for (const l of prefix) if (l.text.trim()) fail(l.line, `Expected a ### ${type === "quiz" ? "question" : "card"} heading.`);
         if (!sectionStarts.length) fail(titleLine.line, `${type} needs at least one ${type === "quiz" ? "question" : "card"}.`);
-        const entries = sectionStarts.map((i, n) => {
+        const entries: Data[] = [];
+        sectionStarts.forEach((i, n) => {
           const h = body[i];
-          const prompt = text([{ ...h, text: heading(h)?.[1] ?? "" }]);
-          requiredText(prompt, h.line, type === "quiz" ? "Question prompt" : "Card front");
           const content = body.slice(i + 1, sectionStarts[n + 1] ?? body.length);
+          let headingText = heading(h)?.[1] ?? "";
+          let quizMarker: string | undefined;
+          if (type === "quiz") {
+            const marker = /\s*<!--\s*(question|explanation)\s*-->$/.exec(headingText);
+            if (marker) {
+              quizMarker = marker[1];
+              headingText = headingText.slice(0, marker.index);
+            }
+            if (/<!--\s*(?:question|explanation)\b/.test(headingText)) {
+              fail(h.line, "Malformed or duplicate quiz marker; use <!-- question --> or <!-- explanation --> at the end of the heading.");
+              return;
+            }
+            if (quizMarker === "explanation" && headingText !== "Explanation") {
+              fail(h.line, "Feedback must use ### Explanation <!-- explanation -->.");
+              return;
+            }
+            if (!quizMarker && headingText === "Explanation" && content.some(l => !l.code && /^-\s+\[[ xX]\]/.test(l.text.trim()))) {
+              fail(h.line, "Ambiguous ### Explanation section with checkbox choices. Add <!-- question --> or <!-- explanation --> to its heading.");
+              return;
+            }
+          }
+          if (type === "quiz" && (quizMarker === "explanation" || (!quizMarker && headingText === "Explanation"))) {
+            const previous = entries[entries.length - 1];
+            if (!previous || "explanation" in previous) fail(h.line, "Orphaned or duplicate ### Explanation section.");
+            else previous.explanation = text(content, true);
+            return;
+          }
+          const firstChoice = type === "quiz" ? content.findIndex(l => bullet(l)) : -1;
+          const promptLines = type === "quiz" && firstChoice > 0 ? content.splice(0, firstChoice) : [];
+          const prompt = text([{ ...h, text: headingText }, ...promptLines]);
+          requiredText(prompt, h.line, type === "quiz" ? "Question prompt" : "Card front");
           if (type === "flashcards") {
             const back = text(content, true);
             requiredText(back, h.line, "Card back");
-            return { front: prompt, back };
+            entries.push({ front: prompt, back });
+            return;
           }
           const choices: string[] = [];
           const choiceExplanations: (string | null)[] = [];
@@ -220,7 +285,12 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
             const l = content[j];
             const choice = !l.code && /^-\s+\[([ xX])\](?:\s+(.*)|\s*)$/.exec(l.text.trim());
             if (choice) {
-              const value = text([{ ...l, text: choice[2] ?? "" }]);
+              const continuation = [{ ...l, text: choice[2] ?? "" }];
+              while (j + 1 < content.length && /^  (?!>)/.test(content[j + 1].text)) {
+                j++;
+                continuation.push({ ...content[j], text: content[j].text.slice(2) });
+              }
+              const value = text(continuation, true);
               requiredText(value, l.line, "Quiz choice");
               if (choice[1].toLowerCase() === "x") checked.push(choices.length);
               choices.push(value); choiceExplanations.push(null); canExplain = true;
@@ -238,8 +308,9 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
           }
           if (!choices.length) fail(h.line, "Question needs at least one choice.");
           if (checked.length !== 1) fail(h.line, "Question needs exactly one checked choice.");
-          return { prompt, choices, correctIndex: checked[0] ?? -1, choiceExplanations };
+          entries.push({ prompt, choices, correctIndex: checked[0] ?? -1, choiceExplanations });
         });
+        if (!entries.length && sectionStarts.length) fail(titleLine.line, `${type} needs at least one ${type === "quiz" ? "question" : "card"}.`);
         data[type === "quiz" ? "questions" : "cards"] = entries;
         if (type === "quiz") {
           requireSetting("passingScore"); requireSetting("shuffle");
@@ -251,11 +322,11 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
         const question = text(body.slice(0, first < 0 ? body.length : first));
         requiredText(question, titleLine.line, "Poll question");
         const options: Data[] = [];
-        for (const l of body.slice(first < 0 ? body.length : first)) {
+        for (const l of joinListContinuations(body.slice(first < 0 ? body.length : first))) {
           if (!l.text.trim()) continue;
           const b = bullet(l);
           if (!b) { fail(l.line, "Expected a poll option bullet."); continue; }
-          const option = item(b[1], "option", l.line);
+          const option = item(b[1], "option", l.line, optionIds);
           option.text = text([{ ...l, text: option.text }]);
           requiredText(option.text, l.line, "Poll option");
           options.push({ ...option });
@@ -272,7 +343,7 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
         let sawUnsorted = false;
         sectionStarts.forEach((i, n) => {
           const h = body[i];
-          const bucket = item(heading(h)?.[1] ?? "", "bucket", h.line);
+          const bucket = item(heading(h)?.[1] ?? "", "bucket", h.line, bucketIds);
           const unsorted = bucket.text.trim() === "Unsorted";
           if (unsorted && (bucket.id || sawUnsorted)) fail(h.line, "Unsorted must appear once at most and cannot have a bucket ID.");
           if (unsorted) sawUnsorted = true;
@@ -281,11 +352,11 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
             requiredText(label, h.line, "Bucket label");
             buckets.push({ ...(bucket.id ? { id: bucket.id } : {}), label });
           }
-          for (const l of body.slice(i + 1, sectionStarts[n + 1] ?? body.length)) {
+          for (const l of joinListContinuations(body.slice(i + 1, sectionStarts[n + 1] ?? body.length))) {
             if (!l.text.trim()) continue;
             const b = bullet(l);
             if (!b) { fail(l.line, "Expected a sorting card bullet."); continue; }
-            const card = item(b[1], "card", l.line);
+            const card = item(b[1], "card", l.line, cardIds);
             card.text = text([{ ...l, text: card.text }]);
             requiredText(card.text, l.line, "Sorting card");
             if (!unsorted) {
@@ -302,11 +373,11 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
         const all: { name: string; url: string; type: "link" | "pdf" }[] = [];
         for (const l of body) {
           if (!l.text.trim()) continue;
-          const m = !l.code && /^-\s+\[([^\]]*)\]\(([^\s]+)\)(?:\s+\(pdf\))?\s*$/.exec(l.text.trim());
+          const m = !l.code && /^-\s+\[((?:\\.|[^\]\\])*)\]\(([^\s]+)\)(?:\s+\(pdf\))?\s*$/.exec(l.text.trim());
           if (!m) { fail(l.line, "Expected a resource link bullet with optional (pdf) suffix."); continue; }
           requiredText(m[1], l.line, "Resource name");
           if (!validWebUrl(m[2])) fail(l.line, "Resource URL must be a valid HTTP(S) URL.");
-          all.push({ name: m[1], url: m[2], type: /\s\(pdf\)\s*$/.test(l.text) ? "pdf" : "link" });
+          all.push({ name: m[1].replace(/\\([\\\[\]])/g, "$1"), url: m[2], type: /\s\(pdf\)\s*$/.test(l.text) ? "pdf" : "link" });
         }
         if (!all.length) fail(titleLine.line, "Additional resources needs at least one resource.");
         data.resources = { link: all.find(r => r.type === "link")?.url ?? "", pdf: all.find(r => r.type === "pdf")?.url ?? "", all };
@@ -348,10 +419,20 @@ function validWebUrl(value: string): boolean {
   try { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) && !!url.hostname; } catch { return false; }
 }
 
-function validTimestamp(value: string): boolean {
+export function validTimestamp(value: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:[Zz]|[+-](\d{2}):(\d{2}))$/.exec(value);
   if (!m || !Number.isFinite(Date.parse(value))) return false;
   const [, y, month, day, hour, minute, second, zoneHour, zoneMinute] = m;
   const days = new Date(Date.UTC(Number(y), Number(month), 0)).getUTCDate();
   return +month >= 1 && +month <= 12 && +day >= 1 && +day <= days && +hour < 24 && +minute < 60 && +second < 60 && (!zoneHour || (+zoneHour < 24 && +zoneMinute < 60));
+}
+
+function joinListContinuations(lines: Line[]): Line[] {
+  const result: Line[] = [];
+  for (const line of lines) {
+    const previous = result[result.length - 1];
+    if (previous && bullet(previous) && line.text.startsWith("  ")) previous.text += "\n" + line.text.slice(2);
+    else result.push({ ...line });
+  }
+  return result;
 }
