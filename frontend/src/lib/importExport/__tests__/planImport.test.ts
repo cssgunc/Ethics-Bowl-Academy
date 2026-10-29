@@ -96,6 +96,31 @@ test("rejects duplicate nested IDs", () => {
   const plan = planImport(parsedModule([parsedPoll([{ id: "yes" }, { id: "yes" }])]), moduleFixture, [poll]);
   expect(plan.errors[0].message).toContain("Duplicate ID");
 });
+
+test("scopes reused nested IDs and vote removal warnings to each poll", () => {
+  const other: Step = { ...poll, id: "other" };
+  const plan = planImport(parsedModule([
+    parsedPoll(poll.options), parsedPoll([{ id: "no" }, { id: "maybe" }], "other"),
+  ]), moduleFixture, [poll, other]);
+  expect(plan.errors).toEqual([]);
+  expect(plan.updates).toHaveLength(2);
+  expect(plan.removedPollOptions).toEqual([{ stepTitle: other.title, optionText: "Live yes", votes: 5 }]);
+});
+
+test.each(["buckets", "cards"])("rejects duplicate sorting %s", key => {
+  const step: ParsedStep = { id: "sort", type: "sorting", title: "Sort", line: 30,
+    data: { buckets: sorting.buckets, cards: sorting.cards, [key]: key === "buckets" ? [sorting.buckets[0], sorting.buckets[0]] : [sorting.cards[0], sorting.cards[0]] } };
+  expect(planImport(parsedModule([step]), moduleFixture, [sorting]).errors[0].message).toContain("Duplicate ID");
+});
+
+test.each([123.999, -123.999])("normalizes fractional live milliseconds %s like Date", millis => {
+  for (const offset of [-1, 0, 1]) {
+    const updatedAt = new Date(Math.trunc(millis) + offset).toISOString();
+    const plan = planImport({ ...parsedModule(), updatedAt }, { ...moduleFixture, updatedAt: { toMillis: () => millis } as unknown as Date }, []);
+    expect(plan.errors).toEqual([]);
+    expect(plan.isStale).toBe(offset < 0);
+  }
+});
 test("preserves sorting assignments across existing/new cards, buckets and unsorted cards", () => {
   const assignments = [{ cardIndex: 0, bucketIndex: 1 }, { cardIndex: 1, bucketIndex: 0 }, { cardIndex: 2, bucketIndex: 1 }];
   const step: ParsedStep = { id: "sort", type: "sorting", title: "Sort", line: 30, data: {

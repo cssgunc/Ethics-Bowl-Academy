@@ -52,10 +52,10 @@ describe('module Markdown export', () => {
     }]));
     expect(markdown).toContain('passingScore: 70');
     expect(markdown).toContain('shuffle: false');
-    expect(markdown).toContain('### Which principle?\n![Diagram](https://example.com/image.png)');
+    expect(markdown).toContain('### Which principle? <!-- question -->\n![Diagram](https://example.com/image.png)');
     expect(markdown).toContain('- [x] Outcomes\n  Second line\n  > Correct.\n  > More detail.');
     expect(markdown).toContain('- [ ] Duties\n  > Focuses on duties.');
-    expect(markdown).toContain('### Explanation\nLegacy explanation.');
+    expect(markdown).toContain('### Explanation <!-- explanation -->\nLegacy explanation.');
   });
 
   it('exports poll question separately from its title, with option IDs and no vote counts', () => {

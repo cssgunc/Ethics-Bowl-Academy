@@ -15,9 +15,14 @@ replaces the preserved filenames in image tags.
 ## Export compatibility and precedence
 
 Flashcards accept optional `studyMode: spaced` or `studyMode: random` without a
-default. A quiz `### Explanation` belongs to the preceding question, alongside
-its per-choice blockquotes; orphaned and duplicate explanation sections fail.
-`Explanation` is therefore reserved as a quiz section heading.
+default. Quiz exports mark the first prompt line with `### Prompt <!-- question -->`
+and question feedback with `### Explanation <!-- explanation -->`. These markers
+are removed from imported text, so a question may itself be named `Explanation`.
+Per-choice blockquotes remain supported. Orphaned, duplicate, and malformed
+feedback markers fail validation. Legacy unmarked questions and `### Explanation`
+feedback remain supported, but an unmarked Explanation section containing checkbox
+choices is ambiguous and fails with a source-line error asking for an explicit
+question or explanation marker. Checkbox text inside fenced code is not ambiguous.
 Two-space-indented continuation lines preserve multiline quiz choices, poll
 options and sorting cards. Quiz prompt lines before the first choice are retained.
 
@@ -67,11 +72,17 @@ module ID must match the loaded module; unrelated live data cannot become delete
 Existing step types cannot change. Unknown, blank and duplicate IDs are errors.
 Nested poll options, sorting cards and sorting buckets must belong to the matching
 parent and item collection; omitted IDs remain absent for the apply stage.
+Nested uniqueness is scoped to each step's item collection: IDs may repeat across
+polls or cloned sorting steps, and between buckets and cards. Within one sorting
+step, card IDs must be unique across all buckets and Unsorted. Module/step ID
+collision checks remain separate from these nested registries.
 
 Removed poll options with positive votes are reported using live text and counts,
 including options in entirely deleted polls. Zero-vote removals do not warn.
 The planner compares file ISO timestamps numerically against live Dates or
-Firestore timestamps (`toMillis`/`toDate`). Only an older file is stale; equal,
+Firestore timestamps (`toMillis`/`toDate`), normalized through Date to the same
+integer-millisecond precision as exported ISO strings. Sub-millisecond differences
+cannot be detected in this format. Only an older file is stale; equal,
 newer or omitted file timestamps are not. Invalid supplied timestamps produce
 errors. Step/nested errors use the step's source line; module errors use line 1.
 

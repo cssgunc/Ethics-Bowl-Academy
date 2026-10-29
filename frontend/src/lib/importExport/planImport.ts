@@ -10,10 +10,10 @@ export function planImport(parsed: ParsedModule, liveModule: Module | null, live
   };
   const fail = (line: number, message: string) => { plan.errors.push({ line, message }); };
   const seen = new Set<string>();
-  const register = (id: unknown, line: number, kind: string): id is string => {
+  const register = (id: unknown, line: number, kind: string, registry = seen): id is string => {
     if (typeof id !== "string" || !id.trim()) { fail(line, `${kind} ID must be a nonblank string.`); return false; }
-    if (seen.has(id)) { fail(line, `Duplicate ID "${id}". Remove copied IDs when creating new items.`); return false; }
-    seen.add(id);
+    if (registry.has(id)) { fail(line, `Duplicate ID "${id}". Remove copied IDs when creating new items.`); return false; }
+    registry.add(id);
     return true;
   };
   if (parsed.id !== undefined) register(parsed.id, 1, "Module");
@@ -50,6 +50,7 @@ export function planImport(parsed: ParsedModule, liveModule: Module | null, live
   const validateNested = (step: ParsedStep, live: Step | undefined) => {
     const keys = step.type === "poll" ? ["options"] : step.type === "sorting" ? ["buckets", "cards"] : [];
     for (const key of keys) {
+      const nestedIds = new Set<string>();
       const items = step.data[key];
       const liveItems = live?.type === "poll" && key === "options" ? live.options
         : live?.type === "sorting" ? (key === "buckets" ? live.buckets : live.cards) : [];
@@ -59,7 +60,7 @@ export function planImport(parsed: ParsedModule, liveModule: Module | null, live
       for (const item of items) {
         if (!item || typeof item !== "object") { fail(step.line, `Invalid item in ${key}.`); continue; }
         if (item.id === undefined) continue;
-        if (!register(item.id, step.line, key)) continue;
+        if (!register(item.id, step.line, key, nestedIds)) continue;
         if (!known.has(item.id)) fail(step.line, `Unknown ${key} ID "${item.id}" in step "${step.title}". Remove copied IDs when creating new items.`);
         else retained.add(item.id);
       }
@@ -105,6 +106,8 @@ function timestampMillis(value: unknown): number | undefined {
         if (date instanceof Date) millis = date.getTime();
       }
     }
-    return typeof millis === "number" && Number.isFinite(millis) ? millis : undefined;
+    // Match the exporter's Date conversion (including pre-epoch timestamps).
+    const normalized = typeof millis === "number" ? new Date(millis).getTime() : NaN;
+    return Number.isFinite(normalized) ? normalized : undefined;
   } catch { return undefined; }
 }

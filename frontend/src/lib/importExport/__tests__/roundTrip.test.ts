@@ -1,6 +1,8 @@
 import { serializeModule, type ExportModule } from "@/lib/module-markdown";
 import type { Step, StepBase } from "@/lib/firebase/types";
 import { parseModule } from "../parse";
+import { planImport } from "../planImport";
+import { Timestamp } from "firebase/firestore";
 
 const date = new Date("2026-09-28T14:00:00Z");
 const base: Omit<StepBase, "type"> = {
@@ -33,6 +35,45 @@ function exported(step: Step): string {
   };
   return serializeModule(module);
 }
+
+test.each([
+  ["Explanation", false], ["Explanation", true],
+  ["Explanation\nMore context", false], ["Explanation\nMore context", true],
+] as const)("preserves question %s, with feedback: %s", (prompt, feedback) => {
+  const step: Step = { ...base, type: "quiz", passingScore: 70, shuffle: false, questions: [
+    { prompt: "First", choices: ["Yes", "No"], correctIndex: 0, choiceExplanations: ["Correct", null], ...(feedback ? { explanation: "First feedback" } : {}) },
+    { prompt, choices: ["A", "B"], correctIndex: 1, ...(feedback ? { explanation: "Second feedback\n- [x] A feedback checklist\n```md\n### Literal\n```" } : {}) },
+  ] };
+  const live: ExportModule = { id: "module", title: "Module", description: "", tags: [], isPublic: false, createdBy: "author", createdAt: date, updatedAt: date, stepCount: 1, steps: [step] };
+  const result = parseModule(serializeModule(live));
+  expect(result.errors).toEqual([]);
+  expect(result.module!.steps[0].data.questions).toMatchObject(step.questions);
+  expect(result.module!.steps[0].data.questions).toHaveLength(2);
+  const plan = planImport(result.module!, live, live.steps);
+  expect(plan.errors).toEqual([]);
+  expect(plan.updates).toHaveLength(1);
+  expect(plan.updates[0].parsed.data.questions).toHaveLength(2);
+});
+
+test("round trips ordinary polls, cloned sorting IDs, and fractional Firestore time through planning", () => {
+  const poll: Step = { ...base, id: "poll", type: "poll", question: "Choose", allowMultipleChoice: false, options: [
+    { id: "1", text: "Yes", votes: 5 }, { id: "2", text: "No", votes: 2 },
+  ] };
+  const sorting: Step = { ...base, id: "sort", type: "sorting", prompt: "Sort", buckets: [{ id: "1", label: "A" }, { id: "2", label: "B" }], cards: [{ id: "1", text: "Card" }], answerKey: { "1": "2" } };
+  const live: ExportModule = { id: "module", title: "Module", description: "", tags: [], isPublic: false, createdBy: "author", createdAt: date,
+    updatedAt: new Timestamp(date.getTime() / 1000, 123456789) as unknown as Date, stepCount: 4,
+    steps: [poll, { ...poll, id: "poll-clone" }, sorting, { ...sorting, id: "sort-clone" }],
+  };
+  const result = parseModule(serializeModule(live));
+  expect(result.errors).toEqual([]);
+  const plan = planImport(result.module!, live, live.steps);
+  expect(plan).toMatchObject({ errors: [], isStale: false, creates: [], deletes: [], removedPollOptions: [] });
+  expect(plan.updates).toHaveLength(4);
+  expect(result.module!.steps[2].data.answerKey).toEqual({ "1": "2" });
+  expect(result.module!.steps[3].data.sortingAssignments).toEqual([{ cardIndex: 0, bucketIndex: 1 }]);
+  result.module!.updatedAt = new Date(date.getTime() + 122).toISOString();
+  expect(planImport(result.module!, live, live.steps).isStale).toBe(true);
+});
 
 test.each(fixtures)("round trips $type with saved metadata", step => {
   const result = parseModule(exported(step));

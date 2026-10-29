@@ -41,11 +41,11 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
   const ids = new Map<string, number>();
   const imageFilenames: string[] = [];
   const fail = (line: number, message: string) => { errors.push({ line, message }); };
-  const register = (id: unknown, line: number): id is string => {
+  const register = (id: unknown, line: number, registry = ids): id is string => {
     if (!nonblank(id)) { fail(line, "ID must be a nonblank string."); return false; }
-    const first = ids.get(id);
+    const first = registry.get(id);
     if (first !== undefined) fail(line, `ID "${id}" appears twice (first appeared on line ${first}). Remove the copied ID to create a new item.`);
-    else ids.set(id, line);
+    else registry.set(id, line);
     return true;
   };
   const lines: Line[] = markdown.replace(/^\uFEFF/, "").split(/\r?\n/).map((text, i) => ({ text, line: i + 1, code: false }));
@@ -121,11 +121,11 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
     }).join("\n");
   };
   const requiredText = (value: string, line: number, name: string) => { if (!value.trim()) fail(line, `${name} must not be blank.`); };
-  const item = (raw: string, kind: string, line: number): Item => {
+  const item = (raw: string, kind: string, line: number, registry: Map<string, number>): Item => {
     const match = /^([\s\S]*?)\s*<!--\s*(option|bucket|card)\s+id="([^"]*)"\s*-->\s*$/.exec(raw);
     if (match && match[2] === kind) {
       const result: Item = { text: match[1] };
-      if (register(match[3], line)) result.id = match[3];
+      if (register(match[3], line, registry)) result.id = match[3];
       return result;
     }
     if (/<!--/.test(raw)) fail(line, `Malformed or misplaced ${kind} ID marker.`);
@@ -200,6 +200,9 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
     const settingLine = (key: string) => settings.get(key) ?? titleLine.line;
     const requireSetting = (key: string) => { if (!settings.has(key)) fail(titleLine.line, `Missing required setting "${key}".`); };
     const body = block.slice(cursor);
+    const optionIds = new Map<string, number>();
+    const bucketIds = new Map<string, number>();
+    const cardIds = new Map<string, number>();
     function parseStepBody() {
       const sectionStarts = body.map((l, i) => heading(l) ? i : -1).filter(i => i >= 0);
       const prefix = body.slice(0, sectionStarts[0] ?? body.length);
@@ -237,7 +240,28 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
         sectionStarts.forEach((i, n) => {
           const h = body[i];
           const content = body.slice(i + 1, sectionStarts[n + 1] ?? body.length);
-          if (type === "quiz" && heading(h)?.[1] === "Explanation") {
+          let headingText = heading(h)?.[1] ?? "";
+          let quizMarker: string | undefined;
+          if (type === "quiz") {
+            const marker = /\s*<!--\s*(question|explanation)\s*-->$/.exec(headingText);
+            if (marker) {
+              quizMarker = marker[1];
+              headingText = headingText.slice(0, marker.index);
+            }
+            if (/<!--\s*(?:question|explanation)\b/.test(headingText)) {
+              fail(h.line, "Malformed or duplicate quiz marker; use <!-- question --> or <!-- explanation --> at the end of the heading.");
+              return;
+            }
+            if (quizMarker === "explanation" && headingText !== "Explanation") {
+              fail(h.line, "Feedback must use ### Explanation <!-- explanation -->.");
+              return;
+            }
+            if (!quizMarker && headingText === "Explanation" && content.some(l => !l.code && /^-\s+\[[ xX]\]/.test(l.text.trim()))) {
+              fail(h.line, "Ambiguous ### Explanation section with checkbox choices. Add <!-- question --> or <!-- explanation --> to its heading.");
+              return;
+            }
+          }
+          if (type === "quiz" && (quizMarker === "explanation" || (!quizMarker && headingText === "Explanation"))) {
             const previous = entries[entries.length - 1];
             if (!previous || "explanation" in previous) fail(h.line, "Orphaned or duplicate ### Explanation section.");
             else previous.explanation = text(content, true);
@@ -245,7 +269,7 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
           }
           const firstChoice = type === "quiz" ? content.findIndex(l => bullet(l)) : -1;
           const promptLines = type === "quiz" && firstChoice > 0 ? content.splice(0, firstChoice) : [];
-          const prompt = text([{ ...h, text: heading(h)?.[1] ?? "" }, ...promptLines]);
+          const prompt = text([{ ...h, text: headingText }, ...promptLines]);
           requiredText(prompt, h.line, type === "quiz" ? "Question prompt" : "Card front");
           if (type === "flashcards") {
             const back = text(content, true);
@@ -302,7 +326,7 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
           if (!l.text.trim()) continue;
           const b = bullet(l);
           if (!b) { fail(l.line, "Expected a poll option bullet."); continue; }
-          const option = item(b[1], "option", l.line);
+          const option = item(b[1], "option", l.line, optionIds);
           option.text = text([{ ...l, text: option.text }]);
           requiredText(option.text, l.line, "Poll option");
           options.push({ ...option });
@@ -319,7 +343,7 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
         let sawUnsorted = false;
         sectionStarts.forEach((i, n) => {
           const h = body[i];
-          const bucket = item(heading(h)?.[1] ?? "", "bucket", h.line);
+          const bucket = item(heading(h)?.[1] ?? "", "bucket", h.line, bucketIds);
           const unsorted = bucket.text.trim() === "Unsorted";
           if (unsorted && (bucket.id || sawUnsorted)) fail(h.line, "Unsorted must appear once at most and cannot have a bucket ID.");
           if (unsorted) sawUnsorted = true;
@@ -332,7 +356,7 @@ export function parseModule(markdown: string): { module: ParsedModule | null; er
             if (!l.text.trim()) continue;
             const b = bullet(l);
             if (!b) { fail(l.line, "Expected a sorting card bullet."); continue; }
-            const card = item(b[1], "card", l.line);
+            const card = item(b[1], "card", l.line, cardIds);
             card.text = text([{ ...l, text: card.text }]);
             requiredText(card.text, l.line, "Sorting card");
             if (!unsorted) {

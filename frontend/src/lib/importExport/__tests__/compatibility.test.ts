@@ -40,9 +40,44 @@ test("studyMode is optional and validated", () => {
 test.each([
   "### Explanation\nOrphan\n### Q\n- [x] A",
   "### Q\n- [x] A\n### Explanation\nFirst\n### Explanation\nSecond",
+  "### Explanation <!-- explanation -->\nOrphan",
+  "### Q <!-- question -->\n- [x] A\n### Explanation <!-- explanation -->\nFirst\n### Explanation <!-- explanation -->\nSecond",
 ])("rejects orphaned or duplicate quiz explanations", body => {
   const result = parseModule(file("quiz", "passingScore: 70\nshuffle: false\n" + body));
   expect(result.errors.some(e => e.message.includes("Orphaned or duplicate"))).toBe(true);
+});
+
+test("rejects ambiguous legacy Explanation questions with a source-line diagnostic", () => {
+  const result = parseModule(file("quiz", "passingScore: 70\nshuffle: false\n### First\n- [x] A\n### Explanation\n- [x] B"));
+  expect(result.module).toBeNull();
+  expect(result.errors).toEqual([{ line: 13, message: expect.stringContaining("Ambiguous") }]);
+});
+
+test("retains unambiguous legacy question feedback", () => {
+  const result = parseModule(file("quiz", "passingScore: 70\nshuffle: false\n### First\n- [x] A\n### Explanation\nFeedback\n```md\n- [x] Literal code\n```"));
+  expect(result.errors).toEqual([]);
+  expect(result.module!.steps[0].data.questions).toMatchObject([{ prompt: "First", explanation: "Feedback\n```md\n- [x] Literal code\n```" }]);
+});
+
+test.each([
+  "### Q <!-- question --> <!-- question -->",
+  "### Q <!-- question id=\"x\" -->",
+  "### Q <!-- question --",
+  "### Wrong <!-- explanation -->",
+])("rejects malformed quiz markers: %s", heading => {
+  const result = parseModule(file("quiz", `passingScore: 70\nshuffle: false\n${heading}\n- [x] A`));
+  expect(result.module).toBeNull();
+  expect(result.errors).toContainEqual({ line: 11, message: expect.stringMatching(/Malformed|Feedback must/) });
+});
+
+test.each([
+  ["poll", 'allowMultipleChoice: false\nQ\n- A <!-- option id="1" -->\n- B <!-- option id="1" -->'],
+  ["sorting", 'Sort\n### A <!-- bucket id="1" -->\n- A <!-- card id="c" -->\n### B <!-- bucket id="1" -->'],
+  ["sorting", 'Sort\n### A <!-- bucket id="1" -->\n- A <!-- card id="c" -->\n### B <!-- bucket id="2" -->\n- B <!-- card id="c" -->'],
+])("rejects duplicate IDs within a %s collection", (type, body) => {
+  const result = parseModule(file(type, body));
+  expect(result.module).toBeNull();
+  expect(result.errors.some(e => e.message.includes("appears twice"))).toBe(true);
 });
 test("unknown colon-prefixed prose is never parsed as YAML", () => {
   const prompt = "Scenario: [invalid YAML\nMore prose\nAnother: {not YAML";

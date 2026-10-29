@@ -123,7 +123,7 @@ I would pull the lever because...`),
     expect(valid(step("poll", 'allowMultipleChoice: false\nQ\n- B <!-- option id="b" -->\n- A <!-- option id="a" -->')).steps[0].data.options).toEqual([{ id: "b", text: "B" }, { id: "a", text: "A" }]);
   });
 
-  test("uses one registry across module, step, option, bucket, and card IDs", () => {
+  test("keeps module/step collisions separate from nested collection IDs", () => {
     const input = file([
       '<!-- step id="same" type="poll" -->\n## P\nallowMultipleChoice: false\nQ\n- A <!-- option id="same" -->\n- B',
       '<!-- step type="sorting" -->\n## S\nPrompt\n### A <!-- bucket id="same" -->\n- C <!-- card id="same" -->\n### B',
@@ -131,7 +131,7 @@ I would pull the lever because...`),
     const result = parseModule(input);
     const duplicates = result.errors.filter(e => e.message.includes("appears twice"));
     expect(result.module).toBeNull();
-    expect(duplicates.map(e => e.line)).toEqual([9, 13, 18, 19]);
+    expect(duplicates.map(e => e.line)).toEqual([9]);
     expect(duplicates.every(e => e.message.includes("line 2"))).toBe(true);
   });
 
