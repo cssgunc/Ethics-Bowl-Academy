@@ -19,6 +19,8 @@ import {
   type ModuleItem,
 } from "../../components/progress";
 import Image from "next/image";
+import Button from "@mui/material/Button";
+import JoinClassroomModal from "../../components/classrooms/JoinClassroomModal";
 
 // Force dynamic rendering to prevent static generation issues with Firebase Auth
 export const dynamic = 'force-dynamic';
@@ -31,6 +33,7 @@ export default function ProfilePage() {
     Record<string, UserProgress>
   >({});
   const [loading, setLoading] = useState(true);
+  const [joinClassroomOpen, setJoinClassroomOpen] = useState(false);
 
   useEffect(() => {
     // 1️⃣ Watch for Auth state (get current user)
@@ -169,6 +172,15 @@ export default function ProfilePage() {
         )}
 
         {/* MODULE PROGRESS */}
+        <Box sx={{ mb: 4 }}>
+          <Box component="h2" sx={{ fontSize: "1.5rem", fontWeight: 600, mb: 2 }}>
+            Classrooms
+          </Box>
+          <Button variant="contained" onClick={() => setJoinClassroomOpen(true)}>
+            I am a student
+          </Button>
+        </Box>
+
         <Box>
           <Box
             component="h2"
@@ -228,6 +240,9 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
+      {joinClassroomOpen && user && (
+        <JoinClassroomModal user={user} onClose={() => setJoinClassroomOpen(false)} />
+      )}
     </div>
   );
 }

@@ -52,6 +52,7 @@ it('offers new-module import beside creation for authenticated users', () => {
   const create = screen.getByRole('button', { name: 'Create New Module' });
   const importButton = screen.getByRole('button', { name: 'Import Module' });
   expect(importButton.parentElement).toBe(create.parentElement);
+  expect(screen.getByRole('button', { name: 'Export Modules' }).parentElement).toBe(create.parentElement);
   fireEvent.click(importButton);
   expect(mockImport).toHaveBeenLastCalledWith(expect.not.objectContaining({ moduleId: expect.anything() }));
 });

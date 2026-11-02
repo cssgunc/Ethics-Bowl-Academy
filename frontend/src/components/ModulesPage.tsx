@@ -28,9 +28,10 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { Download, GripVertical } from 'lucide-react';
 import ModuleEditor from './ModuleEditor';
 import ImportModuleModal from './ImportModuleModal';
+import ExportModulesModal from './ExportModulesModal';
 
 // Sortable Module Card Component
 function SortableModuleCard({ module, userId, onEdit, onDelete }: {
@@ -134,6 +135,7 @@ export default function ModulesPage() {
   // ===== LOCAL STATE =====
   const [showModuleEditor, setShowModuleEditor] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
 
   // ===== DND SENSORS =====
@@ -250,7 +252,7 @@ export default function ModulesPage() {
           </div>
         )}
 
-        {/* Create Module Button */}
+        {/* Module actions */}
         <div className="mb-6 flex flex-wrap gap-3">
           <button
             onClick={handleCreateModule}
@@ -268,6 +270,13 @@ export default function ModulesPage() {
             className="bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors duration-200"
           >
             Import Module
+          </button>
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="bg-white hover:bg-gray-100 border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+          >
+            <Download size={20} aria-hidden="true" />
+            Export Modules
           </button>
         </div>
 
@@ -319,6 +328,7 @@ export default function ModulesPage() {
           </DndContext>
         )}
 
+        {showExportModal && <ExportModulesModal onClose={() => setShowExportModal(false)} />}
         {/* Module Editor Modal */}
         {showImportModal && (
           <ImportModuleModal

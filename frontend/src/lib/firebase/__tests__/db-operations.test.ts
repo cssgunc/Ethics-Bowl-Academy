@@ -47,6 +47,7 @@ describe("Module CRUD Operations", () => {
     (doc as jest.Mock).mockReturnValue({ type: "DocumentReference" });
     (query as jest.Mock).mockReturnValue({ type: "Query" });
     (orderBy as jest.Mock).mockReturnValue({ type: "OrderBy" });
+    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
   });
   describe("createModule", () => {
     it("should create a module with correct data", async () => {
@@ -177,6 +178,7 @@ describe("Step CRUD Operations", () => {
     (doc as jest.Mock).mockReturnValue({ type: "DocumentReference" });
     (query as jest.Mock).mockReturnValue({ type: "Query" });
     (orderBy as jest.Mock).mockReturnValue({ type: "OrderBy" });
+    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
   });
 
   describe("createStep", () => {
