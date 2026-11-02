@@ -30,6 +30,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import ModuleEditor from './ModuleEditor';
+import ImportModuleModal from './ImportModuleModal';
 
 // Sortable Module Card Component
 function SortableModuleCard({ module, userId, onEdit, onDelete }: {
@@ -132,6 +133,7 @@ export default function ModulesPage() {
 
   // ===== LOCAL STATE =====
   const [showModuleEditor, setShowModuleEditor] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
 
   // ===== DND SENSORS =====
@@ -249,7 +251,7 @@ export default function ModulesPage() {
         )}
 
         {/* Create Module Button */}
-        <div className="mb-6">
+        <div className="mb-6 flex flex-wrap gap-3">
           <button
             onClick={handleCreateModule}
             disabled={isLoading}
@@ -259,6 +261,13 @@ export default function ModulesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Create New Module
+          </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            disabled={isLoading}
+            className="bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors duration-200"
+          >
+            Import Module
           </button>
         </div>
 
@@ -311,6 +320,15 @@ export default function ModulesPage() {
         )}
 
         {/* Module Editor Modal */}
+        {showImportModal && (
+          <ImportModuleModal
+            onClose={() => setShowImportModal(false)}
+            onImported={() => {
+              setShowImportModal(false);
+              void fetchModules();
+            }}
+          />
+        )}
         {showModuleEditor && (
           <ModuleEditor
             moduleId={editingModuleId}
