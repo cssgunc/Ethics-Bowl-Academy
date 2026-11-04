@@ -172,10 +172,10 @@ test("is deterministic and does not mutate deeply frozen inputs", () => {
   }
   const file = freeze(parsedModule([parsedPoll([{ id: "yes" }, { text: "New" }]), parsedVideo()]));
   const live = freeze([poll, liveVideo("deleted")]);
-  const module = freeze(moduleFixture);
-  const before = JSON.stringify({ file, live, module });
-  expect(planImport(file, module, live)).toEqual(planImport(file, module, live));
-  expect(JSON.stringify({ file, live, module })).toBe(before);
+  const frozenModule = freeze(moduleFixture);
+  const before = JSON.stringify({ file, live, module: frozenModule });
+  expect(planImport(file, frozenModule, live)).toEqual(planImport(file, frozenModule, live));
+  expect(JSON.stringify({ file, live, module: frozenModule })).toBe(before);
 });
 test("does not load Firebase initialization or database operations", () => {
   jest.isolateModules(() => {

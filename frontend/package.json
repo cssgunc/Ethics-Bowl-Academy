@@ -39,6 +39,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@firebase/rules-unit-testing": "^5.0.2",
+    "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/canvas-confetti": "^1.9.0",
     "@types/jest": "^30.0.0",

@@ -6,6 +6,7 @@ import { Step } from "@/lib/firebase/types";
 import AddFeatureModal from "./AddStepModal";
 import StepEditorModal from "./StepEditorModal";
 import { useAlert } from "@/context/AlertContext";
+import ImportModuleModal from "./ImportModuleModal";
 
 interface ModuleEditorProps {
   moduleId: string | null;
@@ -18,11 +19,12 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
     createNewModule,
     updateModuleData,
     saveModuleWithSteps, // Use the new action
+    fetchModules,
   } = useModuleStore();
   const { showAlert, showConfirm } = useAlert();
 
   // Get the latest module data from store
-  const module = moduleId ? modules.find((m) => m.id === moduleId) : null;
+  const currentModule = moduleId ? modules.find((m) => m.id === moduleId) : null;
 
   const [formData, setFormData] = useState({
     title: "",
@@ -34,6 +36,7 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
   const [steps, setSteps] = useState<Step[]>([]);
 
   const [isSaving, setIsSaving] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showAddStepModal, setShowAddStepModal] = useState(false);
   const [editingStep, setEditingStep] = useState<Step | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -44,16 +47,16 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
   const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
-    if (module) {
+    if (currentModule) {
       const fd = {
-        title: module.title,
-        description: module.description,
-        order: module.order ?? 1,
+        title: currentModule.title,
+        description: currentModule.description,
+        order: currentModule.order ?? 1,
       };
       setFormData(fd);
-      setSteps(module.steps || []);
+      setSteps(currentModule.steps || []);
       initialFormData.current = fd;
-      initialSteps.current = module.steps || [];
+      initialSteps.current = currentModule.steps || [];
     } else {
       const nextOrder = modules.length + 1;
       const fd = { title: "", description: "", order: nextOrder };
@@ -63,7 +66,7 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
       initialSteps.current = [];
     }
     setIsDirty(false);
-  }, [module, modules]);
+  }, [currentModule, modules]);
 
   // Detect changes
   useEffect(() => {
@@ -309,7 +312,7 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-2xl font-bold text-gray-900">
-            {module ? "Edit Module" : "Create New Module"}
+            {currentModule ? "Edit Module" : "Create New Module"}
           </h2>
           <button
             onClick={handleClose}
@@ -503,6 +506,17 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+          {moduleId && (
+            <span className="mr-auto" title={isDirty ? "Save your changes before importing." : undefined}>
+              <button
+                onClick={() => setShowImportModal(true)}
+                disabled={isDirty || isSaving}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors duration-200 disabled:opacity-50"
+              >
+                Import
+              </button>
+            </span>
+          )}
           <button
             onClick={handleClose}
             disabled={isSaving}
@@ -520,7 +534,7 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
             )}
             {isSaving
               ? "Saving..."
-              : module
+              : currentModule
                 ? "Update Module"
                 : "Create Module"}
           </button>
@@ -528,9 +542,20 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
       </div>
 
       {/* Add Step Modal */}
+      {showImportModal && moduleId && (
+        <ImportModuleModal
+          moduleId={moduleId}
+          onClose={() => setShowImportModal(false)}
+          onImported={() => {
+            setShowImportModal(false);
+            onClose();
+            void fetchModules();
+          }}
+        />
+      )}
       {showAddStepModal && (
         <AddFeatureModal
-          moduleId={module?.id || 'new-module'} // Pass a placeholder ID for new modules if needed, or better, the modal shouldn't depend on it for saving now
+          moduleId={currentModule?.id || 'new-module'} // Pass a placeholder ID for new modules if needed, or better, the modal shouldn't depend on it for saving now
           onClose={() => setShowAddStepModal(false)}
           onSave={handleStepSave}
         />
@@ -539,7 +564,7 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
       {/* Edit Step Modal */}
       {editingStep && (
         <StepEditorModal
-          moduleId={module?.id || 'new-module'}
+          moduleId={currentModule?.id || 'new-module'}
           step={editingStep}
           onClose={() => setEditingStep(null)}
           onSave={handleStepSave}

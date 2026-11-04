@@ -66,18 +66,18 @@ I would pull the lever because...`),
       step("additionalResources", `- [Stanford Encyclopedia entry](https://plato.stanford.edu/)
 - [Case study](https://example.com/case.pdf) (pdf)`),
     ].join("\n\n");
-    const module = valid(body);
-    expect(module.steps).toHaveLength(7);
-    expect(module.steps[0]).toEqual({ id: "st_1", type: "video", title: "Watch: The Trolley Problem", line: 8, data: { estimatedMinutes: 5, youtubeUrl: "https://www.youtube.com/watch?v=example", thumbnailUrl: "https://example.com/thumbnail.png", durationSec: 100, isOptional: true } });
-    expect(module.steps[1].data.questions).toEqual([
+    const parsed = valid(body);
+    expect(parsed.steps).toHaveLength(7);
+    expect(parsed.steps[0]).toEqual({ id: "st_1", type: "video", title: "Watch: The Trolley Problem", line: 8, data: { estimatedMinutes: 5, youtubeUrl: "https://www.youtube.com/watch?v=example", thumbnailUrl: "https://example.com/thumbnail.png", durationSec: 100, isOptional: true } });
+    expect(parsed.steps[1].data.questions).toEqual([
       { prompt: "Which principle focuses on outcomes?", choices: ["Consequentialism", "Deontology"], correctIndex: 0, choiceExplanations: ["Right. It judges actions by their results.\nConsider the consequences.", "Deontology focuses on duties, not outcomes."] },
       { prompt: "A second question", choices: ["First", "Second"], correctIndex: 1, choiceExplanations: [null, null] },
     ]);
-    expect(module.steps[2].data).toMatchObject({ question: "Would you pull the lever?", options: [{ id: "op_1", text: "Yes, pull it" }, { id: "op_2", text: "No, don't pull it" }] });
-    expect(module.steps[3].data).toMatchObject({ answerKey: { cd_1: "bk_1", cd_2: "bk_2" }, sortingAssignments: [{ cardIndex: 0, bucketIndex: 0 }, { cardIndex: 1, bucketIndex: 1 }] });
-    expect(module.steps[4].data).toEqual({ cards: [{ front: "Utilitarianism", back: "Maximizing overall well-being." }] });
-    expect(module.steps[5].data).toEqual({ maxLength: 2000, prompt: 'What would you do, and why?\n<img src="https://example.com/image.png" alt="Diagram" />', sampleAnswer: "I would pull the lever because..." });
-    expect(module.steps[6].data.resources).toEqual({ link: "https://plato.stanford.edu/", pdf: "https://example.com/case.pdf", all: [{ name: "Stanford Encyclopedia entry", url: "https://plato.stanford.edu/", type: "link" }, { name: "Case study", url: "https://example.com/case.pdf", type: "pdf" }] });
+    expect(parsed.steps[2].data).toMatchObject({ question: "Would you pull the lever?", options: [{ id: "op_1", text: "Yes, pull it" }, { id: "op_2", text: "No, don't pull it" }] });
+    expect(parsed.steps[3].data).toMatchObject({ answerKey: { cd_1: "bk_1", cd_2: "bk_2" }, sortingAssignments: [{ cardIndex: 0, bucketIndex: 0 }, { cardIndex: 1, bucketIndex: 1 }] });
+    expect(parsed.steps[4].data).toEqual({ cards: [{ front: "Utilitarianism", back: "Maximizing overall well-being." }] });
+    expect(parsed.steps[5].data).toEqual({ maxLength: 2000, prompt: 'What would you do, and why?\n<img src="https://example.com/image.png" alt="Diagram" />', sampleAnswer: "I would pull the lever because..." });
+    expect(parsed.steps[6].data.resources).toEqual({ link: "https://plato.stanford.edu/", pdf: "https://example.com/case.pdf", all: [{ name: "Stanford Encyclopedia entry", url: "https://plato.stanford.edu/", type: "link" }, { name: "Case study", url: "https://example.com/case.pdf", type: "pdf" }] });
     expect(parseModule(file(body))).toEqual(parseModule(file(body)));
   });
 
@@ -136,16 +136,16 @@ I would pull the lever because...`),
   });
 
   test("converts images in text fields, escapes attributes and deduplicates filenames in source order", () => {
-    const module = valid([
+    const parsed = valid([
       step("freeResponse", `![a&"<>](<first image.png>)\n![again](first.png)\n![remote](https://example.com/a?x=1&y=2)\n### Sample answer\n![repeat](first.png)`),
       step("flashcards", "### ![front](front.png)\n![back](first.png)"),
       step("quiz", "passingScore: 100\nshuffle: false\n### ![Q](question.png)\n- [x] ![C](choice.png)\n  > ![E](explanation.png)"),
       step("poll", "allowMultipleChoice: false\n![Q](poll.png)\n- ![A](option.png)\n- B"),
       step("sorting", "![P](sort.png)\n### ![B](bucket.png)\n- ![C](card.png)\n### B"),
     ].join("\n"));
-    expect(module.imageFilenames).toEqual(["first image.png", "first.png", "front.png", "question.png", "choice.png", "explanation.png", "poll.png", "option.png", "sort.png", "bucket.png", "card.png"]);
-    expect(module.steps[0].data.prompt).toContain('<img src="first image.png" alt="a&amp;&quot;&lt;&gt;" />');
-    expect(module.steps[0].data.prompt).toContain('src="https://example.com/a?x=1&amp;y=2"');
+    expect(parsed.imageFilenames).toEqual(["first image.png", "first.png", "front.png", "question.png", "choice.png", "explanation.png", "poll.png", "option.png", "sort.png", "bucket.png", "card.png"]);
+    expect(parsed.steps[0].data.prompt).toContain('<img src="first image.png" alt="a&amp;&quot;&lt;&gt;" />');
+    expect(parsed.steps[0].data.prompt).toContain('src="https://example.com/a?x=1&amp;y=2"');
   });
 
   test.each(["../image.png", "/image.png", "images/image.png", "C:\\image.png", "file:image.png", "data:image/png;base64,x", "javascript:alert(1)", "//example.com/image.png"])("rejects unsupported image destination %s", destination => {
@@ -154,10 +154,10 @@ I would pull the lever because...`),
 
   test.each(["```", "~~~~"])("preserves fenced code and ignores structural markers/images within %s", fence => {
     const literal = `${fence}md\n<!-- step type="debate" -->\n## Fake\n### Sample answer\n![code](ignored.png)\n${fence}`;
-    const module = valid(step("freeResponse", `Prompt  \n\n${literal}\n\n  trailing whitespace  \n\n`));
-    expect(module.steps).toHaveLength(1);
-    expect(module.imageFilenames).toEqual([]);
-    expect(module.steps[0].data.prompt).toBe(`Prompt  \n\n${literal}\n\n  trailing whitespace  `);
+    const parsed = valid(step("freeResponse", `Prompt  \n\n${literal}\n\n  trailing whitespace  \n\n`));
+    expect(parsed.steps).toHaveLength(1);
+    expect(parsed.imageFilenames).toEqual([]);
+    expect(parsed.steps[0].data.prompt).toBe(`Prompt  \n\n${literal}\n\n  trailing whitespace  `);
   });
 
   test("reports multiple independent errors with exact lines, equally for BOM and CRLF", () => {
@@ -173,9 +173,9 @@ I would pull the lever because...`),
   });
 
   test("preserves fenced examples inside quiz explanation blockquotes", () => {
-    const module = valid(step("quiz", "passingScore: 70\nshuffle: false\n### Q\n- [x] A\n  > ```md\n  > ![literal](ignored.png)\n  > ### Literal heading\n  > ```"));
-    expect(module.imageFilenames).toEqual([]);
-    expect(module.steps[0].data.questions).toEqual([{ prompt: "Q", choices: ["A"], correctIndex: 0, choiceExplanations: ["```md\n![literal](ignored.png)\n### Literal heading\n```"] }]);
+    const parsed = valid(step("quiz", "passingScore: 70\nshuffle: false\n### Q\n- [x] A\n  > ```md\n  > ![literal](ignored.png)\n  > ### Literal heading\n  > ```"));
+    expect(parsed.imageFilenames).toEqual([]);
+    expect(parsed.steps[0].data.questions).toEqual([{ prompt: "Q", choices: ["A"], correctIndex: 0, choiceExplanations: ["```md\n![literal](ignored.png)\n### Literal heading\n```"] }]);
   });
 
   test.each([
