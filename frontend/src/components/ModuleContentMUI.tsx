@@ -22,6 +22,7 @@ import {
   AdditionalResourcesStep,
   UserProgress,
 } from "@/lib/firebase/types";
+import DebateStepView from "./DebateStepView";
 import FreeResponseStepView from "./FreeResponseStepView";
 import VideoStepView from "./VideoStepView";
 import FlashcardsStepView from "./FlashcardsStepView";
@@ -48,6 +49,7 @@ export default function ModuleContentMUI({
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
   const [showSteps, setShowSteps] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [debateReady, setDebateReady] = useState(false);
   const [freeResponsesByStepId, setFreeResponsesByStepId] = useState<
     Record<string, string>
   >({});
@@ -161,12 +163,14 @@ export default function ModuleContentMUI({
     const s = steps[currentStepIndex];
     const alreadyCompleted = userProgress?.completedStepIds?.includes(s.id);
 
-    if (s.type === "sorting") {
+    if (s.type === "debate") {
+      setNextEnabled(debateReady);
+    } else if (s.type === "sorting") {
       setNextEnabled(alreadyCompleted || s.isOptional ? true : false);
     } else if (s.type !== "quiz") {
       setNextEnabled(true);
     }
-  }, [showSteps, steps, currentStepIndex, userProgress]);
+  }, [showSteps, steps, currentStepIndex, userProgress, debateReady]);
 
   // Keep user progress updated
   const refreshProgress = () => {
@@ -198,6 +202,7 @@ export default function ModuleContentMUI({
     const currentStep = steps[currentStepIndex];
 
     const handlePrevious = async () => {
+      setDebateReady(false);
       setNextEnabled(true);
       if (currentStepIndex > 0) {
         setCurrentStepIndex(currentStepIndex - 1);
@@ -209,6 +214,8 @@ export default function ModuleContentMUI({
     };
 
     const handleNext = async () => {
+      if (currentStep.type === "debate" && !debateReady) return;
+      setDebateReady(false);
       await markStepCompleted(userId, moduleId, currentStep.id);
       if (currentStepIndex < steps.length - 1) {
         setCurrentStepIndex(currentStepIndex + 1);
@@ -379,6 +386,9 @@ export default function ModuleContentMUI({
               alignItems: "center",
             }}
           >
+            {currentStep.type === "debate" && (
+              <DebateStepView key={currentStep.id} step={currentStep} onReadyChange={setDebateReady} />
+            )}
             {currentStep.type === "video" && (
               <VideoStepView step={currentStep as VideoStep} />
             )}

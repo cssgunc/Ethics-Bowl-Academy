@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Step, StepType } from "@/lib/firebase/types";
+import DebateEditorModal from "./step-editors/DebateEditorModal";
 import VideoEditorModal from "./step-editors/VideoEditorModal";
 import AdditionalResourcesEditorModal from "./step-editors/AdditionalResourcesEditorModal";
 import FlashcardsEditorModal from "./step-editors/FlashcardsEditorModal";
@@ -22,6 +23,7 @@ const stepTypes: {
   description: string;
   icon: React.ReactNode;
 }[] = [
+    { type: "debate", name: "Debate", description: "Discuss an ethical dilemma with an AI reasoning partner", icon: <span aria-hidden="true">💬</span> },
     {
       type: "video",
       name: "Video",
@@ -173,6 +175,8 @@ export default function AddStepModal({
 
   if (selectedType) {
     switch (selectedType) {
+      case "debate":
+        return <DebateEditorModal moduleId={moduleId} onClose={onClose} onBack={() => setSelectedType(null)} onSave={onSave} />;
       case "video":
         return (
           <VideoEditorModal

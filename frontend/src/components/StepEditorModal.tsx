@@ -2,6 +2,7 @@
 
 import type { Step } from "@/lib/firebase/types";
 
+import DebateEditorModal from "./step-editors/DebateEditorModal";
 import VideoEditorModal from "./step-editors/VideoEditorModal";
 import QuizEditorModal from "./step-editors/QuizEditorModal";
 import FlashcardsEditorModal from "./step-editors/FlashcardsEditorModal";
@@ -25,6 +26,8 @@ export default function StepEditorModal({
   const handleBack = () => onClose();
 
   switch (step.type) {
+    case "debate":
+      return <DebateEditorModal moduleId={moduleId} step={step} onClose={onClose} onBack={handleBack} onSave={onSave} />;
     case "video":
       return (
         <VideoEditorModal
