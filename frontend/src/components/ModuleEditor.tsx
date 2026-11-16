@@ -271,6 +271,8 @@ export default function ModuleEditor({ moduleId, onClose }: ModuleEditorProps) {
             />
           </svg>
         );
+      case "debate":
+        return <span aria-label="Debate">💬</span>;
       case "sorting":
         return (
           <svg
