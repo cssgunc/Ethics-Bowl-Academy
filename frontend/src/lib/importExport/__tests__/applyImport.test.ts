@@ -89,6 +89,16 @@ it('builds additional resources in the existing editor shape', async () => {
   expect(batch.set.mock.calls[0][1].resources).toEqual({ link: 'https://example.com', pdf: 'https://example.com/a.pdf', all: [expect.objectContaining({ id: expect.any(String), type: 'link' }), expect.objectContaining({ id: expect.any(String), type: 'pdf' })] });
 });
 
+it('uploads a local image referenced only in a step title', async () => {
+  const result = parseModule('---\ntitle: Ethics\ndescription: Learn\ntags: []\nisPublic: true\n---\n\n<!-- step type="freeResponse" -->\n## Reflect ![Diagram](photo.png)\n\nWhat do you think?\n');
+  expect(result.errors).toEqual([]);
+  const parsed = result.module!;
+  const image = { name: 'photo.png', type: 'image/png', size: 10 } as File;
+  await applyImport(planImport(parsed, null, []), parsed, [image], 'owner');
+  expect(uploadStepImage).toHaveBeenCalledWith(image, 'new-module', 'freeResponses', 'owner', expect.any(String));
+  expect(batch.set.mock.calls[0][1].title).toBe('Reflect <img src="https://example.com/image.png" alt="Diagram" />');
+});
+
 it('does no writes for invalid plans, missing images or wrong authentication', async () => {
   const parsed = parsedModule([]);
   await expect(applyImport({ ...newPlan(parsed), errors: [{ line: 1, message: 'Error' }] }, parsed, [], 'owner')).rejects.toThrow('Resolve');

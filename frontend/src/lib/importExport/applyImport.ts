@@ -53,7 +53,7 @@ export async function applyImport(plan: ImportPlan, parsed: ParsedModule, images
     const collectionName = STEP_COLLECTIONS[step.type];
     const parent = collection(db, "modules", moduleId, collectionName);
     const reference = live ? doc(parent, live.id) : doc(parent);
-    let data = prepareData(step, live);
+    let data: Record<string, unknown> = { ...prepareData(step, live), title: step.title };
     // Upload into each consuming step collection; replace exact image src values only.
     for (const name of parsed.imageFilenames) {
       const source = `src="${escapeAttribute(name)}"`;
@@ -66,7 +66,7 @@ export async function applyImport(plan: ImportPlan, parsed: ParsedModule, images
       }
       data = replaceStrings(data, source, `src="${escapeAttribute(url)}"`) as Record<string, unknown>;
     }
-    const payload = { ...data, title: step.title, type: step.type, order, updatedAt: serverTimestamp() };
+    const payload = { ...data, type: step.type, order, updatedAt: serverTimestamp() };
     if (live) batch.update(reference, payload);
     else batch.set(reference, {
       ...payload, moduleId, createdBy: userId, createdAt: serverTimestamp(),
